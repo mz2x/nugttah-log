@@ -625,6 +625,24 @@
     return out;
   }
 
+  function personWeekCardHtml(person, weekId, sub){
+    var out = '<div class="card person-card">';
+    out += '  <div class="person-head"><div class="person-name">'+esc(formatWeekLabel(weekId))+'</div></div>';
+    if(sub){
+      person.questions.forEach(function(q){
+        var ans = (sub.answers && sub.answers[q.id]) ? sub.answers[q.id] : '';
+        if(!ans) return;
+        out += '<div class="qa"><div class="q">'+esc(q.label)+'</div><div class="a">'+nl2br(ans)+'</div></div>';
+      });
+      out += attachmentLinksHtml(sub);
+      out += '<div class="meta-time">Submitted '+esc(formatTime(sub.submittedAt))+'</div>';
+    } else {
+      out += '<div class="empty-note">No update submitted this week.</div>';
+    }
+    out += '</div>';
+    return out;
+  }
+
   // ---------- app state ----------
   var state = {
     identity: null,        // {type:'member', person} | {type:'manager'}
@@ -633,7 +651,8 @@
     activeTab: 'submit',
     submitWeekId: currentWeekId(),
     myReportWeekId: currentWeekId(),
-    reportWeekId: currentWeekId()
+    reportWeekId: currentWeekId(),
+    reportPersonId: 'all'
   };
 
   var authArea = document.getElementById('authArea');
@@ -1036,9 +1055,16 @@
       out += '<option value="'+wid+'" '+(wid===state.reportWeekId?'selected':'')+'>'+esc(formatWeekLabel(wid))+(wid===thisWeek?' (current)':'')+'</option>';
     });
     out += '    </select>';
+    out += '    <label for="reportPersonSel" style="margin-inline-start:16px;">Person</label>';
+    out += '    <select id="reportPersonSel">';
+    out += '      <option value="all"'+(state.reportPersonId==='all'?' selected':'')+'>All team</option>';
+    TEAM.forEach(function(p){
+      out += '<option value="'+p.id+'" '+(p.id===state.reportPersonId?'selected':'')+'>'+esc(p.name)+'</option>';
+    });
+    out += '    </select>';
     out += '  </div>';
     out += '  <div class="perforation"></div>';
-    out += '  <div id="stampSummary" class="loading">Loading stamps for this week…</div>';
+    out += '  <div id="stampSummary" class="loading">Loading…</div>';
     out += '</div>';
     out += '<div id="reportBody"></div>';
     viewEl.innerHTML = out;
@@ -1047,6 +1073,15 @@
       state.reportWeekId = e.target.value;
       renderReportView();
     };
+    document.getElementById('reportPersonSel').onchange = function(e){
+      state.reportPersonId = e.target.value;
+      renderReportView();
+    };
+
+    if(state.reportPersonId !== 'all'){
+      await renderPersonHistoryView();
+      return;
+    }
 
     var submitted = await getSubmittedMap(state.reportWeekId);
     var count = Object.keys(submitted).length;
@@ -1132,6 +1167,51 @@
       if(!confirm('Reset the passcode for ' + pname + '? They will need to set a new one next time.')) return;
       var ok = await deletePin(pid);
       showToast(ok ? (pname + '’s passcode was reset.') : 'Could not reset it — try again.');
+    };
+  }
+
+  // Manager report view, single-person mode: same "Week" dropdown anchors
+  // the most recent week shown; a small range control controls how many
+  // weeks back to pull. Export/Copy/Print stay tied to the full-team report
+  // and are intentionally not shown here — this view is for quick 1:1 prep,
+  // not for producing a document.
+  async function renderPersonHistoryView(){
+    var person = teamById(state.reportPersonId);
+    var summaryEl = document.getElementById('stampSummary');
+    summaryEl.classList.remove('loading');
+    summaryEl.innerHTML = '<div class="stamp-summary" style="display:flex;align-items:center;gap:12px;">'
+      + '<div class="person-name" style="font-size:16px;">'+esc(person.name)+'</div>'
+      + '<div class="person-title" style="color:var(--muted);">'+esc(person.title)+'</div>'
+      + '</div>';
+
+    var bodyHtml = '<div class="card" style="margin-bottom:16px;">';
+    bodyHtml += '  <label style="display:flex;align-items:center;gap:8px;color:rgba(255,255,255,0.75);font-size:13px;font-weight:600;">';
+    bodyHtml += '    Weeks to look back: <input type="number" id="historyRangeInput" min="1" max="26" value="'+(state.historyWeeksBack||6)+'" style="width:64px;">';
+    bodyHtml += '    <button type="button" class="btn btn-ghost" id="historyRangeApply">Apply</button>';
+    bodyHtml += '  </label>';
+    bodyHtml += '</div>';
+    bodyHtml += '<div id="historyCards" class="loading">Loading history…</div>';
+    document.getElementById('reportBody').innerHTML = bodyHtml;
+
+    var weeksBack = state.historyWeeksBack || 6;
+    var weekIds = [];
+    for(var i=0;i<weeksBack;i++){ weekIds.push(weekIdOffset(state.reportWeekId, i)); }
+
+    var cardsHtml = '';
+    for(var j=0;j<weekIds.length;j++){
+      var map = await getSubmittedMap(weekIds[j]);
+      cardsHtml += personWeekCardHtml(person, weekIds[j], map[person.id]);
+    }
+    var cardsEl = document.getElementById('historyCards');
+    cardsEl.classList.remove('loading');
+    cardsEl.innerHTML = cardsHtml;
+
+    document.getElementById('historyRangeApply').onclick = function(){
+      var v = parseInt(document.getElementById('historyRangeInput').value, 10) || 6;
+      if(v < 1) v = 1;
+      if(v > 26) v = 26;
+      state.historyWeeksBack = v;
+      renderPersonHistoryView();
     };
   }
 
