@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nugttah Weekly Growth Log</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+CjxjaXJjbGUgY3g9IjMyIiBjeT0iMzIiIHI9IjMyIiBmaWxsPSIjMTQ0MzVlIi8+CjxjaXJjbGUgY3g9IjMyIiBjeT0iMzIiIHI9IjE1IiBmaWxsPSIjZWNhZjVmIi8+Cjwvc3ZnPg==">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.16.0/firebase-app-compat.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.16.0/firebase-firestore-compat.min.js"></script>
+<style>
+  :root{
+    /* sampled directly from the Nugttah x Barq brand deck */
+    --espresso-900:#14435e;   /* brand navy — page bg, avatar, toast */
+    --espresso-700:#184969;   /* secondary navy — labels on white */
+    --cream-50:#ffffff;       /* white — text on navy, card surfaces */
+    --cream-100:#dcefe6;      /* light mint tint — selected / highlight bg */
+    --crema-500:#ecaf5f;      /* brand amber — logo pill, CTAs, active tab */
+    --crema-600:#d89a46;      /* amber hover */
+    --mint-500:#9dd3bc;       /* brand mint — eyebrows, underlines, subheads */
+    --green-600:#3f9b72;      /* deep mint — filled stamp / checkmark bg */
+    --green-100:#eaf5ef;      /* light mint tint (spare) */
+    --ink:#0b2a40;            /* deep navy ink — primary text on white */
+    --muted:rgba(11,42,64,0.58);
+    --hollow:rgba(255,255,255,0.16);
+    --radius:14px;
+    --font-display:'Poppins', -apple-system, sans-serif;
+    --font-body:'Inter', -apple-system, sans-serif;
+    --font-mono:'Inter', -apple-system, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--espresso-900);
+    background-image:
+      radial-gradient(ellipse 800px 500px at 15% -10%, rgba(236,175,95,0.14), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 0%, rgba(157,211,188,0.16), transparent 55%);
+    color:var(--cream-50);
+    font-family:var(--font-body);
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  .wrap{max-width:760px;margin:0 auto;padding:28px 18px 64px;position:relative;}
+  .topbar{padding:6px 4px 22px;position:relative;}
+  .topbar::before{
+    content:'';position:absolute;top:-210px;left:50%;transform:translateX(-50%);
+    width:900px;height:900px;border-radius:50%;
+    border:1px solid rgba(255,255,255,0.14);
+    pointer-events:none;z-index:0;
+  }
+  .topbar > *{position:relative;z-index:1;}
+  .eyebrow{
+    font-family:var(--font-body);
+    font-weight:600;
+    font-size:11.5px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--mint-500);
+    margin-bottom:8px;
+  }
+  .h1{
+    font-family:var(--font-display);
+    font-weight:600;
+    font-size:clamp(28px,5vw,38px);
+    line-height:1.08;
+    margin:0;
+    color:var(--cream-50);
+  }
+  .brand-underline{width:60px;height:4px;border-radius:4px;background:var(--mint-500);margin-top:12px;}
+  .sub{color:rgba(255,255,255,0.62);font-size:14.5px;margin-top:10px;}
+
+  .top-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin:22px 0 14px;}
+  .role-note{color:rgba(255,255,255,0.55);font-size:12.5px;}
+  .link-onnavy{background:none;border:none;color:rgba(255,255,255,0.6);font-size:12.5px;text-decoration:underline;cursor:pointer;padding:0;}
+  .link-onnavy:hover{color:#fff;}
+
+  .tabs{display:flex;gap:8px;margin:0 0 22px;position:relative;z-index:1;}
+  .tab{
+    font-family:var(--font-body);
+    font-weight:600;
+    font-size:13.5px;
+    padding:11px 16px;
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,0.18);
+    background:transparent;
+    color:rgba(255,255,255,0.68);
+    cursor:pointer;
+    transition:background .15s ease, color .15s ease, border-color .15s ease;
+  }
+  .tab:hover{border-color:rgba(255,255,255,0.38);color:var(--cream-50);}
+  .tab.active{background:var(--crema-500);border-color:var(--crema-500);color:var(--espresso-900);}
+  .tab:focus-visible{outline:2px solid var(--crema-500);outline-offset:2px;}
+
+  .card{
+    background:var(--cream-50);
+    color:var(--ink);
+    border-radius:var(--radius);
+    padding:22px 22px 24px;
+    box-shadow:0 18px 40px -20px rgba(0,0,0,0.55);
+  }
+  .card + .card{margin-top:16px;}
+
+  .perforation{
+    height:1px;
+    margin:18px 0;
+    background-image:repeating-linear-gradient(to right, rgba(11,42,64,0.20) 0 6px, transparent 6px 12px);
+  }
+
+  .or-divider{display:flex;align-items:center;gap:10px;margin:20px 0 14px;color:var(--muted);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;}
+  .or-divider::before,.or-divider::after{content:'';flex:1;height:1px;background:rgba(11,42,64,0.15);}
+  .manager-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  input[type="password"], input[type="text"]{
+    font-family:var(--font-body);font-size:14.5px;color:var(--ink);
+    background:#fff;border:1.4px solid rgba(11,42,64,0.2);border-radius:10px;
+    padding:10px 12px;max-width:200px;
+  }
+  input[type="password"]:focus, input[type="text"]:focus{outline:2px solid var(--crema-500);outline-offset:1px;border-color:var(--crema-500);}
+  .error-text{color:#c0483f;font-size:12.5px;margin-top:9px;}
+
+  .file-list{margin-top:8px;display:flex;flex-direction:column;gap:6px;}
+  .file-row{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:8px 10px;border-radius:8px;background:var(--cream-100);font-size:13px;
+  }
+  .file-row a{color:var(--ink);text-decoration:none;font-weight:600;}
+  .file-row a:hover{text-decoration:underline;}
+  .file-remove{background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;line-height:1;padding:2px 4px;}
+  .file-remove:hover{color:#c0483f;}
+  .upload-status{font-size:12.5px;color:var(--muted);margin-top:8px;}
+  .upload-status.busy{animation:pulse 1.4s ease-in-out infinite;}
+  @media (prefers-reduced-motion: no-preference){
+    @keyframes pulse{0%,100%{opacity:.55;}50%{opacity:1;}}
+  }
+
+  /* --- stamp row (signature element) --- */
+  .stamp-summary{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:6px;}
+  .stamp-row{display:flex;gap:8px;flex-wrap:wrap;}
+  .stamp{
+    width:34px;height:34px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--font-body);font-size:11px;font-weight:700;
+    border:1.6px dashed rgba(11,42,64,0.26);
+    color:rgba(11,42,64,0.36);
+    position:relative;
+  }
+  .stamp.filled{
+    border:1.6px solid var(--green-600);
+    background:var(--green-600);
+    color:#fff;
+    transform:rotate(-6deg);
+  }
+  .stamp-count{font-family:var(--font-mono);font-size:12.5px;color:var(--muted);}
+
+  .field{margin-top:16px;}
+  .field label{
+    display:block;font-size:13.5px;font-weight:600;
+    margin-bottom:6px;color:var(--ink);
+  }
+  textarea, select{
+    width:100%;
+    font-family:var(--font-body);
+    font-size:14.5px;
+    color:var(--ink);
+    background:#fff;
+    border:1.4px solid rgba(11,42,64,0.18);
+    border-radius:10px;
+    padding:10px 12px;
+    resize:vertical;
+    min-height:64px;
+  }
+  select{min-height:auto;padding:9px 10px;}
+  textarea:focus, select:focus{outline:2px solid var(--crema-500);outline-offset:1px;border-color:var(--crema-500);}
+
+  .btn{
+    font-family:var(--font-body);font-weight:700;font-size:14px;
+    padding:12px 18px;border-radius:10px;border:none;cursor:pointer;
+    transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .btn:active{transform:translateY(1px);}
+  .btn-primary{background:var(--crema-500);color:var(--espresso-900);}
+  .btn-primary:hover{background:var(--crema-600);}
+  .btn-ghost{background:transparent;color:var(--espresso-700);border:1.4px solid rgba(11,42,64,0.22);}
+  .btn-ghost:hover{border-color:rgba(11,42,64,0.4);}
+  .btn:focus-visible{outline:2px solid var(--espresso-900);outline-offset:2px;}
+  .btn[disabled]{opacity:.5;cursor:not-allowed;}
+
+  .row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+  .link-btn{background:none;border:none;color:var(--muted);font-size:12.5px;text-decoration:underline;cursor:pointer;padding:0;}
+
+  .week-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px;}
+  .week-bar label{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,0.6);}
+  .week-bar select{max-width:240px;}
+
+  /* --- chip grid (person picker, gate only) --- */
+  .dept-group{margin-top:18px;}
+  .dept-group:first-child{margin-top:2px;}
+  .dept-label{
+    font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--muted);margin-bottom:8px;
+  }
+  .chip-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:10px;}
+  .chip{
+    display:flex;flex-direction:column;align-items:center;gap:6px;
+    padding:12px 8px 10px;border-radius:12px;
+    border:1.4px solid rgba(11,42,64,0.14);background:#fff;
+    cursor:pointer;text-align:center;position:relative;
+    transition:border-color .12s ease, transform .12s ease;
+  }
+  .chip:hover{border-color:var(--crema-500);}
+  .chip:focus-visible{outline:2px solid var(--crema-500);outline-offset:2px;}
+  .avatar{
+    width:40px;height:40px;border-radius:50%;
+    background:var(--espresso-900);color:var(--cream-50);
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--font-mono);font-weight:600;font-size:13px;
+  }
+  .avatar-photo{
+    width:40px;height:40px;border-radius:50%;
+    object-fit:cover;display:block;
+    border:1.5px solid rgba(11,42,64,0.1);
+  }
+  .chip .name{font-size:12.5px;font-weight:700;color:var(--ink);}
+  .chip .title{font-size:10.5px;color:var(--muted);line-height:1.25;}
+
+  /* --- report cards --- */
+  .report-dept-title{
+    font-family:var(--font-display);font-weight:600;font-size:19px;
+    margin:26px 0 14px;color:var(--cream-50);
+    position:relative;padding-bottom:9px;
+  }
+  .report-dept-title::after{
+    content:'';position:absolute;left:0;bottom:0;width:38px;height:3px;border-radius:3px;
+    background:var(--mint-500);
+  }
+  .report-dept-title:first-of-type{margin-top:6px;}
+  .person-card{margin-bottom:12px;}
+  .person-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+  .person-name{font-family:var(--font-display);font-weight:600;font-size:18px;}
+  .person-title{font-size:12px;color:var(--muted);}
+  .qa{margin-top:12px;}
+  .qa .q{font-size:12px;font-weight:700;color:var(--crema-600);text-transform:uppercase;letter-spacing:.02em;}
+  .qa .a{font-size:14.5px;margin-top:4px;line-height:1.5;}
+  .empty-note{
+    margin-top:12px;padding:10px 12px;border-radius:8px;
+    border:1.4px dashed rgba(11,42,64,0.25);color:var(--muted);font-size:13px;
+  }
+  .meta-time{font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-top:10px;}
+
+  .actions{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;}
+  .toast{
+    position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+    background:var(--espresso-900);color:var(--cream-50);
+    border:1px solid var(--crema-500);
+    padding:10px 18px;border-radius:999px;font-size:13.5px;font-weight:600;
+    box-shadow:0 12px 30px -12px rgba(0,0,0,0.6);
+    opacity:0;pointer-events:none;transition:opacity .2s ease, transform .2s ease;
+    z-index:50;
+    max-width:88vw;text-align:center;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px);}
+
+  .loading{color:var(--muted);font-size:13.5px;padding:12px 2px;}
+
+  @media (prefers-reduced-motion: no-preference){
+    .stamp.filled{animation:stampin .28s ease;}
+    @keyframes stampin{from{transform:scale(0.5) rotate(-6deg);opacity:0;}to{transform:scale(1) rotate(-6deg);opacity:1;}}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none !important;transition:none !important;}
+  }
+
+  @media print{
+    body{background:#fff;color:#000;}
+    .topbar .eyebrow{color:#2f6b52;}
+    .topbar::before{display:none;}
+    #authArea,#topRow,.tabs,.actions,.week-bar .link-btn,.chip-grid,.dept-group,#formArea,.toast{display:none !important;}
+    .card{box-shadow:none;border:1px solid #ddd;}
+    .wrap{max-width:100%;padding:0;}
+  }
+
+  footer{margin-top:36px;text-align:center;font-family:var(--font-mono);font-size:11px;color:rgba(255,255,255,0.4);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="eyebrow">Nugttah · Marketing Team</div>
+    <h1 class="h1">Weekly Growth Log</h1>
+    <div class="brand-underline"></div>
+    <div class="sub" id="subline"></div>
+  </div>
+  <div id="authArea"></div>
+  <div class="top-row" id="topRow" style="display:none;"></div>
+  <nav class="tabs" id="tabs" style="display:none;"></nav>
+  <main id="view"></main>
+  <footer>Internal tool · your check-ins are visible to you and your manager only</footer>
+</div>
+<div class="toast" id="toast"></div>
+
+<input type="file" id="fileInput" multiple style="display:none;">
+
+<script>
+(function(){
+  "use strict";
+
+  var MANAGER_PASSCODE = "entidhar2026";
+  var MANAGER_PHOTO = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAcFBQYFBAcGBgYIBwcICxILCwoKCxYPEA0SGhYbGhkWGRgcICgiHB4mHhgZIzAkJiorLS4tGyIyNTEsNSgsLSz/2wBDAQcICAsJCxULCxUsHRkdLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCz/wAARCACgAKADASIAAhEBAxEB/8QAHAAAAAcBAQAAAAAAAAAAAAAAAQIDBAUGBwgA/8QAQBAAAgEDAgMFBQYEBQIHAAAAAQIDAAQRBSEGEjETQVFhcQcUIoGRMlKhscHRI0Jy4RUWJDPwCII0Q1Nik6Lx/8QAGgEAAgMBAQAAAAAAAAAAAAAAAgQAAQMFBv/EACkRAAICAgICAQMDBQAAAAAAAAABAhEDEgQhMUFREyJhFHGRgaHh8PH/2gAMAwEAAhEDEQA/AN1QUoCKRBxQhq2aAFxQgikeahD0NFihNBnzohag5qhA5ailqLzVX+MeKIeFeH5b90EszMIreInAkkOcZPcAAST4A1dEHet8SaboEAkv7kRlvsxjd39B+vSqHqXtcnZ2XSbK1C9zXbMxPyQjH1NZFrWvXGpahJeahd9tNMcl5G5QfJR3DwFRM2ovEv8ADSNgehYnB9GHSpTZsoxS7Ny0b2yx9v7txJpwsZDulxaOZYXHfkHDKR1xvtWlWV7b39olzazpPDIMq6HINclRXwvbI8rNgH4kb7UbD/noQasvB/H2ocMzQvC5mt5WCy27HZz0+R7s+OO6rpguK9HSsRyZP6zSlR+j6hb6rp0d9avz29yBLG3TKkAj51IULM0eoa9QE1RZ416gzQZqyBq9mi5oatIoTJoKqV/rE8rNciS+tIuQLyLDzDrvjDA5Pjin/D0k0l1dyTT3EhkCHEsQQbDGRueu21bPG0rZippuifzXixouaZXst+ksYtIY5EwS5ZsHyA9aBK3QbdD7mNe5qh/etbVOZrC2J22EvTxoXvdSMrJDaxSbD+cDHn16eHpRa/krb8Evnash9sLTatxNoOgW78ryI8xJGQuTjmPjgI35d9anp73j2xN6ipLznAX7vd86zL2oGbS+NNK1i3WFpW025gTtmIXmVlbu3zyu23lWOVuMXXk3w1Kas9ovC+jaNByxWUc8x+3cXCB5JPUnp6DYUXXuFeGNQi5ryG0sZCMCaKRYH/ZvmDVX4Y4l1Tiue90lp4Y76NGbMIK8oHr31BRcPa1Zaq86WZmuSRyzXTM/Nk7nmwcY8hXCjup3J9ndesorVdEZxFwpf8NTnUbKQajpw2eeEZwvg4Hh4jb0qFEwBk5GynbI6/PBroDhrQ9YFh22tXKShlIEIU4APjmsU400GHhvii6s7ba1kaOeEfcUsfh+RBHpiunxeQ5y0n5EOTxljjvDwbB7F+LFlsV4cuSO0jEkts2ftKHPMny6jyz4Vrg6Vy97Lb2OH2iaG8knZxgvk+bgqAfUmul5Rel/4Dwqm32wSfOnJLs57HlEY01kgvWKlbxUx1Ajzmk2t7sj/wAcwbxEYx9KGih7mvZpCCOSMHtJ2lJO2VAx9KVq6INpbom5EcMqNyg86heZge75U4WQ9mpfY4yfKo69t2tS1xZ4WeRsMXYYI+dRt3PqkrvGrQtBJlHLsvJykDpghs7nNY4HOU5Rmqr+P+/IeTWMU4/5J/3SLPMOcHHc52oUt1iJKlsnbdiaWocUw2Z0hIigxSpWg5aq0ShPFESFI89mipzHJwMZNLctBy1CBcVVePOGrbiDTbOS5VXSxuDKVboysjIw/wDsD8qteKRvbUXljNbMcCVCufA9x+tDNNxaQeNqM02ZjoNvpOi63Kscio6x5klc/eOAPwompcXW9lfD3CaLUIowfeFiGex8Dnvqi8Sw3+nXs8rWhuCz9iwDYKbnJ88eFPtPsY7HTTB/mF1jmJ/hWcPZ82RsWZgWPoPwrgJN+T067f2ovMHHMOpRiOIhjjoKyv2wMq69YTDAMlsM/J2/erHpfDqcOc1120k3bfEzyncn9sVm/GusLr3F0rBs21mogHgSMkj6k/SmOGm89/AnzZL6NeLC6RPJAEljYxyZDA9CMHIrqLgPjCHizRVkJAvYAFnXPU/fHkfwNcr217YQEG7nC5643rQvZBeLYe0WyW0vRcWOoRSx7N/MFJwR8hXckrOL6OjXaks5ohfNeBoEjMUBoc0QGhzVkBIBG4B9aAKANgB8q9mgJqFCtGptLdRQY526+AJx9KNBdRXGezYnl67EfnUou14HFBXgaQu7kQRECWNJWHwB+hNZSairkEk30hfFBy0SB5HDdoCMYxleXuo5kQEguoIIGMjv6VcXasjVAEURiAKq3FvtH0ThOMLMZr26ZSwt7VOZgAcZY9FGdv0rHOIP+oe/uOdNLSOxU5G0fNIP+5uh9BR+PJVWS3tQ4y0vSPaC1oxilj7JDMYslo5d8hh37cp26UnpvEfCNiF1GKOO9lf4uZm5uQ+GO6sfk1JNdlkPurPO2WLPKfiPfUY+lStbi5iUSLjLKmxXxpPJxYze0R/FzJY1q+0aVxt7TherJb6egEjDlTl35POszSx1CfHLGyJ4ueX5716C6sYk2F1G3fySD9qXTWIYnzFC7Y75W5z9OlaYcMMaqzDNmlmdsc2ugQR/Hd3Ac/dQZ/OrRwhIeHdbtdRsoZpmtpRMqyHCnbBGw6Gouy12RrN5pEEKp34FMTcalrUvMLpoYScAc25pqkvBl0dV8J8aWvE0JjeNbS+QZaAuGDDxU9/p1FWbJFcfWJt9OvFitue/vk+I5Y8kfqQetafwv7U59Gn5NUeS4tXx2itKZGjPipP5Z3qqKcfg3UNQ81QHDvF+icUwyPpN/HcPF/uxfZkjz95TuPXpU3moZhy1NpL63jfkedA3hmobjDWJNH4eurmEZkSMsPqFH4n8KoFrousvbQTQa3O8uozIJ5YHBURnJBB6jGOmR16bU7g4qyQ3lKkJ5uS8ctIq2alPprvZoqrGGRy3LHlcjPj1zSulWctpG5lYAudkHRR+9Pq9SVjOquw4NIXVrDcAPIuWjBKnOMGlM0BYUE4RmtZK0aRm4u0Q0t9qohBR4nk3PKpTfpjOT0xnpv0rNuM+L57XWHs7crDcoe0upY3LYONlGdgfMdO6r9xvxD/l3hua5hwLmX+FCcdCQST8gCfXFc63F28/b3MjFpJWAyepNFjX04KCd/l+RnFjWSX1JL+noXvZLjULqW/mupeeU8vKcEbd+4qs3+mykySutsUUbyLAS30zvVmuAY4YYh3Lk0hycwx4GouxqWOLRWbCzjE0N5aHnHKUdF6Z78effTdbptK1edHGbWR8/wBOd81O6lC9mj3UKZTGZVA3wP5h5ioCa5trtsTyL8Q2mHRvJh3HzoukJTg4uh1c8PWt9J29vKI+fcqOlBHw/Z2n8SeYNy92aYRCV4Gt/eFiVD8Llxgj1zTWSMrntdSiYD7pLH8qja80Zju9nbUWEdunJaxnG3eafWdsttCslvzS3Eg5UJ6L4mou3vbe3BWFZrmR/wCUjlXPoMmn0NtqWpTFJT7rAuzKm3y//apNeQlFt9DyG7i05DaWR7e5k+2V3APeSak7Ie7BZZCHlO+T3elNorOG0iKQoF25fMk0tK23pRDUIa9stHDnFE2jcRWt6HIRWAk/9yHZgfl+Qro1JFdQyMGVhlSO8dxrkeN/4qnwrof2aa7/AIvwnFDI+bixIhbxK/yH6bfKhaM+QtlsPeOtNvtQ4emXT5Cs3KVZRj41PVTnx/aqCdSWw/0EFhfJZRq7yj3Yr2AKBckZ+I5yWYnfO1bEDmm8mnWswKvFlT1XmPKfl0p/j8xYoaSVo42fjfUlvF0yTopNGzRTXPHQpNEZqMaYatfppek3V8/S3iaT1IGw+uKsur6RkXtf143epDT4pMQWfwMc7GQ/a+mw+tZfDOWlEec4kB6+X9qkNfu3uJJHmk53di7HOzEneobSlD3wAGFD5+QH96s6SWtRRY7gZuMeAAp9f6Hf6QYPfbdohcxiaJjuGU79fHxHdTJmHvDsegBq/wDG2opJwlYpOD28JjKkjplMEf8APCsJ5NJRj8jUYbJv4Mz10gWC2w+1dN2f/b1b8PzquTcNRMD2JZD5GpbUbpZtUhPdHGcepP8Aave9KO+maT8nOy/dIrh4Yueb/cTHpU3p3CNslorXCdrI25JOBju2p1HdK8qJ15jj96tfDelz8TaqLO0ZIwqGR5G6Io/PfAx50D1gtmHhxpu2VtNLttNiLwQxhz8KDG5Y9KFo0tYQgPMR1Pie80ae67W4Zh9mLKjzbvP6fWmUkjO25ojbpeAJGxyd2WLfQf3pCWf4iKNcHllUdyoM/Peo2SQG9AJ76gDdEnEebJNX32Wa+dK4oitpXxDe/wCnbJ2BJyh+R2+dZ5FIoIyakra5MTiSMcpUhge8GoSlJUdWoTSoplY3IuNPtrlmC9vEj7nvKg08U5GQQR5UBzaEL3WLLT5hFczCN2XnA8v74OKTsdctNRvZba3Ys0cayE9xB/aoj/BdQ7Ip/iFz2nKQHaIMF28Cc1IaTY3FpM7S3E0oZN+dAoznqMfOtnGKXkzTk34JUms19rGvS29vBo8LBBOnbSnxGcKvpkE/IVoV5dw2NpLdXMqxQQqXd2OAAK5l444pv9a1GW+lVRHI2VCjcKNlX5D8SayHMEbls/RA6rI0eFJBYnO1G0IKLGa5zli5QD5j9qj7NBrch55GjhjPxtjf0HnU3bvb6ZbGK0UhAS3Mxyx8d6jfwORVvb0aH7PuFLbW9QmvtWVhY27BVQnAkk64PkBjI8xU9xpwDqOr2c5028trn+KJESSTkbAztnpnfyp9oN3Y8PcIabBdRSzrJCHzGmcu3xMT8zR11W3lLyWd/NAc/wCzNDzoD4AruPnmuDk5Dll3XrwdKGNqLXyc96xZXel6i1tewPb3ELFHjcYI7xTQSEgnPQ1bfadPd3PEDvd+7lo4Y+QwEkcuSRnO+dzVOQ/wCx9a7uKbnBSfs4ueOk2h1bMfik8PhH6/886vPs41b3PWbm127S5gyMnGytk/n+FQHCfDN3xJqUdjblYwq9pLK4PLGM9fM9wFa7w57MOHtH1b3t577UblQQwZlVBkYA5V3AxnbPfSnMzQUXjb7Y9xISi1OukZPxVpb6BrstsAewl/jQN95G/UHIPpUMJySB47VuntKsrQcHB47C2VLWZOUhckBjhgc+O30FYy2n28z88JMEgGw+0ufTrWnFzfVxpv10Vmx6y6I64mEnasD0bA9BtUI0xbUdvCpO6sbnTwomAKH7LqcqahVkxeSOCNtqYbFJuvJNRE5HhUtYrzPy4zkYxUBDPJKAFdM+dSFrcTQSAsvQ5BFEFCR0rwhqD6hwnoxliXso4VVpmH2WTK+nd+NWmK5tYuWEXMRZgWA5gCRmqP7LbqLVOAntkIYxXDqVJxgNhh+v0q0TcPxXKckilUGPgWU4bAIBO3UAkUtjxyjlbk7T/lfj9v7i2eSqoru/8AWTlFajE0U1uYmX+3JIZOE7FJJ27RrsLHarnNwSp6Y712OTsATWKrDJpluWubtpXb/wAkHMa+XicftWse2uCZNY0PUDk28UFxGPASErj8CfpWKX9y9zcAk/CrEnyVdz+JFUO4eoWOEug9xOkaKiqQuFAG/edqG4kPu0u4A5GH4VGWjOIjKesr/oaWaXnR4iy55TsDmpZqn0bLpHFVtqvDunS2t4FPu6LLEDhQ4GCDscdKZcScXQaXYF9Qto5twqMnLzsT4OpB+orCI57qwDGC5ki5tj2blckenXFA9zLcyB7iWWV/vMxY/jXKXDW130a/rnrVdkzJeyPfySzyPJHd7OXYsVPQHJ+lKQMiwhpW5UQczH07vrTW3EUtrySM3L48h2+lPIoEkkaNjshyGKHpjqNutdaPS6Emm2mXn2ValENZvLi6laNpI1jt7YsQJBkkkgbs2wwPM1ra6jq1q4FotrZBz9mVBGCPEjr8zvXO9nrraLfQXthcW4lhJ5ctsQRgjx6Gr7pftC0e8sxNe6kIrkD44SeVM9/UZYeGK4/Nwy33j3Z1eNmgo6SZcfaDeN/ke+EkiuWaMEr9knnHQ1jUd0D31aeNOOrLU9Bi0ux5H5mV3ZGBAUbgbeJ/KqD7wAdqb4MXHH38mXIyJz6JuS4RoikqiSNvtKwyDUX/AJdtLm4uOxkljCkPyIQ2VIyCM70T3g+O1Gs7s2etKZM9m6hW9MU60haTTqwp4atoSskUjTh/sh25d+8ZA6+VJXZv7Iqot07JtkdZOYH5nv8AKpuaXF5JaSEFZV5kYfeHQ02jn7e2nDASMmBIhGzjx+f7VK+CnBeiw+yvjWfhjjKOx1Bmhtb1lgmVj8IJ+w49CfoTXTiv3HqK4xu4JI1iSMG5gZ1EY/mKt9kA/eByAa6+0pbiPSbNLti1ysCLKT1LhRzfjmqFMqp2SlAajLq6vQkwgEPOhwgLg857gB3HHXNOLe4kmmAYwAcmeVJecnfr6daujJsrntH0G44h4Lu7Szi7W7QrNCnexHUDzIJrmW8tDFas0xMbFWVgRjlJbcHPTpXYrDNUfin2a6Jrl092LGVLq4bMslvJyZP3ip2J88b1lkmoRcmm/wBuxjBLvRnMM1/CkKRxAYTO+5zUc2ozRsRGqL4nlrolPYxwdFOJrrVL25hBx2WyeuWUZwPlVA9q+laZpWt2em6RBb22nW9uHRIsHLsTzOzblmOANzsBVqpR2i7Qbk3LX2ZZIrO4zg4GNhgCnVtauxB5E+bYpd7YPdn4WI7gFp9DFDH8Jiyw6gEMfoAaiRFDsNawumOWKP8A+alo0maa5ZLiJeXbBGcHHjmjRKhYctgfVioxSagFbmR7FJfiI+Ej6fTetA/AxldexUMJScbthSD+NRsgDkpHzEnoCuKmxEzW68k5OB3PkfjUbd20ifEd/PH6igkjOS6EEYwryJuRucd9LGeRAedGUg43BG9R7KwPf9aEPLy8vM2PDuoLB2okVvDgA1J3vJL2U6EHYA49KriysDuoNO4WkmOEjYnqeXeiUg1K+iwXkvMllcKfsnBPzpIS+76vN9xlINJ2ljf3CxotleSIcMoW3ds+YwKvvD/sj1/X/wDUXMX+FQNvz3aEO3og3+uKO7Dcku2x57HeG4da12S7vELwaXIJ41I2LnPKD6HLY8q6AUYqj6PoOocGaa+maJbC5RUjkMzpgzykkOSc7AAKAO4UaHXeLYnuVl0iWdfdwbdzb9nmYkcwcAnCrvg/zYokuhPJLaRdTYWjPzm3Qtzc+cfzeNDDaW9uQYYUQqOUEDfHhSvNQFqGwQ2a9mky1e5qhZHyaPFJGUdY+Q5J5eYE5GOueh7xXPXtAhA451OScoyW8vYQqg+FFXGFA8STv5mulC4G5OANz6VzBq0jarxPqGozHMUcrsg7i7ZJb5AgfWqjFRSjFUhnB90nJ9srPYSPKxfEYO5VDv6Fv2pU9lbAKxCfdjVcsfl++KCadjMYoCA/V3IyEH6t+VAipDnGSScsxOSx8SaM3/YWjkkfAWFYl8Xbmb6DaotVumt1McjBHyWA3O5PTPSpVWypIPSm1qMWkX9IqVYLXYWOKNxiPBYDcAcrj5UhNbk9MMPPY/UfrTx0V8FhuOhGxHzpN25P945Xul8P6v3qUVRFNZ87EIcsNyrjDD9/lQLZnvQfI1KSxA7ONwcg948waSLtGf44yv8A6qjcf1D9RQ6orVEc9oqnJyn9QwPr0p3bWz288cqbbg+INP1QFQRhlIyCNwRR0tBkmI9m3XYZU+oqahKJ0xwAccC6UyOcGALgbYwxFWQGqP7KLpp/Z9bI+Oe3lkiODkdcj8Gq6hqsRmqkxYGjUkGowaoAf//Z";
+
+  // ---------- team & questions ----------
+  var TEAM = [
+    { id:'abdulaziz', name:'Abdulaziz', title:'Growth & Retention', dept:'Growth & Retention', photo:"data:image/jpeg;base64,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",
+      questions:[
+        {id:'shipped', label:"What did you work on this week?"},
+        {id:'segments', label:"Which customer segments or lifecycle journeys did you touch? (New / Active / Loyal / At Risk / Lost)"},
+        {id:'activations', label:"Any pushes, in-app banners, discount codes, or gift card campaigns launched? Results so far?"},
+        {id:'blockers', label:"Anything blocking you or that needs support?"},
+        {id:'next', label:"Focus for next week"}
+      ]},
+    { id:'saleh', name:'Saleh', title:'Growth Analyst', dept:'Growth Analytics',
+      questions:[
+        {id:'shipped', label:"What did you work on this week?"},
+        {id:'dashboards', label:"Which dashboards or reports did you build or update?"},
+        {id:'insight', label:"Key insight or finding from this week's analysis?"},
+        {id:'blockers', label:"Anything blocking you or that needs support?"},
+        {id:'next', label:"Focus for next week"}
+      ]},
+    { id:'mazen', name:'Mazen', title:'Growth Analytics Intern', dept:'Growth Analytics',
+      questions:[
+        {id:'shipped', label:"What did you work on this week?"},
+        {id:'dashboards', label:"Which dashboards or reports did you help update?"},
+        {id:'learning', label:"One thing you learned or improved on this week?"},
+        {id:'blockers', label:"Anything blocking you or that needs support?"},
+        {id:'next', label:"Focus for next week"}
+      ]},
+    { id:'abdullah', name:'Abdullah', title:'Marketing & Partnerships Specialist', dept:'Performance & Partnerships', photo:"data:image/jpeg;base64,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",
+      questions:[
+        {id:'shipped', label:"What did you work on this week?"},
+        {id:'ads', label:"Ad spend, ROAS, or CAC highlights across Meta / Snapchat / TikTok / Google?"},
+        {id:'partnerships', label:"Any new partnerships or co-marketing campaigns in motion?"},
+        {id:'blockers', label:"Anything blocking you or that needs support?"},
+        {id:'next', label:"Focus for next week"}
+      ]},
+    { id:'reem', name:'Reem', title:'Marketing Specialist', dept:'Campaigns & Brand',
+      questions:[
+        {id:'shipped', label:"What did you work on this week?"},
+        {id:'campaigns', label:"Which brand or partner campaigns launched or ran this week?"},
+        {id:'content', label:"Any gift card campaigns or blog content published?"},
+        {id:'blockers', label:"Anything blocking you or that needs support?"},
+        {id:'next', label:"Focus for next week"}
+      ]},
+    { id:'rose', name:'Rose', title:'Marketing Intern', dept:'Social Media',
+      questions:[
+        {id:'shipped', label:"What did you work on this week?"},
+        {id:'support', label:"What social media tasks did you support (scheduling, comments, coordination)?"},
+        {id:'blockers', label:"Anything blocking you or that needs support?"},
+        {id:'next', label:"Focus for next week"}
+      ]},
+    { id:'noura', name:'Noura', title:'Graphic Designer', dept:'Creative Team',
+      questions:[
+        {id:'shipped', label:"What did you work on this week?"},
+        {id:'assets', label:"Which design assets did you deliver (app designs, banners, campaigns, brand identity)?"},
+        {id:'blockers', label:"Anything blocking you or that needs support?"},
+        {id:'next', label:"Focus for next week"}
+      ]},
+    { id:'rafeef', name:'Rafeef', title:'Graphic & Visual Designer', dept:'Creative Team',
+      questions:[
+        {id:'shipped', label:"What did you work on this week?"},
+        {id:'assets', label:"Which gift card, Numa, or illustration assets did you deliver?"},
+        {id:'blockers', label:"Anything blocking you or that needs support?"},
+        {id:'next', label:"Focus for next week"}
+      ]}
+  ];
+  var DEPT_ORDER = ['Growth & Retention','Growth Analytics','Performance & Partnerships','Campaigns & Brand','Social Media','Creative Team'];
+  function teamById(id){ for(var i=0;i<TEAM.length;i++){ if(TEAM[i].id===id) return TEAM[i]; } return null; }
+  function teamByDept(dept){ return TEAM.filter(function(p){ return p.dept===dept; }); }
+
+  // ---------- utils ----------
+  function esc(s){
+    return String(s==null?'':s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function nl2br(s){ return esc(s).replace(/\n/g,'<br>'); }
+  function initials(name){ return name.slice(0,2).toUpperCase(); }
+  function pad(n){ return n<10 ? '0'+n : ''+n; }
+  function toISODate(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+  function getWeekStart(date){
+    var d = new Date(date); d.setHours(0,0,0,0);
+    var day = d.getDay();
+    d.setDate(d.getDate()-day);
+    return d;
+  }
+  function currentWeekId(){ return toISODate(getWeekStart(new Date())); }
+  function weekIdOffset(weekId, weeksBack){
+    var d = new Date(weekId+'T00:00:00');
+    d.setDate(d.getDate()-weeksBack*7);
+    return toISODate(d);
+  }
+  function formatWeekLabel(weekId){
+    // Saudi work week: Sunday through Thursday
+    var start = new Date(weekId+'T00:00:00');
+    var end = new Date(start); end.setDate(end.getDate()+4);
+    var startStr = start.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+    var endStr = end.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+    return 'Week of ' + startStr + ' – ' + endStr;
+  }
+  function formatTime(iso){
+    try{
+      var d = new Date(iso);
+      return d.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ', ' + d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+    }catch(e){ return ''; }
+  }
+
+  // ---------- storage helpers (talks to your own Firebase project) ----------
+  // 1. Create a Firebase project at console.firebase.google.com
+  // 2. Add a Web app, enable Firestore + Storage, paste open rules
+  //    (see the setup steps Mazen was given).
+  // 3. Paste the config values below, replacing the placeholder text.
+  var FIREBASE_CONFIG = {
+    apiKey: "AIzaSyDIFpqei0l3oksjBUldJ18TfXM3fXxSKts",
+    authDomain: "nugttah-weekly-log.firebaseapp.com",
+    projectId: "nugttah-weekly-log",
+    storageBucket: "nugttah-weekly-log.firebasestorage.app",
+    messagingSenderId: "1022176001097",
+    appId: "1:1022176001097:web:70e081de340880ea429398"
+  };
+
+  function firebaseReady(){
+    return FIREBASE_CONFIG.apiKey.indexOf('PASTE_YOUR') !== 0;
+  }
+  var db = null;
+  if(firebaseReady()){
+    try{
+      firebase.initializeApp(FIREBASE_CONFIG);
+      db = firebase.firestore();
+    }catch(e){ console.error('Firebase init failed', e); }
+  }
+
+  // ---------- file uploads (Cloudinary) ----------
+  // Firestore handles all the text data above; file uploads go straight to
+  // Cloudinary's CDN via an "unsigned" upload preset — a pattern built for
+  // exactly this (direct browser upload, no server code, proper CORS support
+  // out of the box). Free, no card required.
+  // 1. Sign up at cloudinary.com (Google sign-in is fine, no card).
+  // 2. Copy your "Cloud name" from the dashboard.
+  // 3. Settings -> Upload -> Upload presets -> Add upload preset ->
+  //    Signing Mode: Unsigned -> Save. Copy the preset name.
+  // 4. Paste both values below.
+  var CLOUDINARY_CLOUD_NAME = "qpjlf7gd";
+  var CLOUDINARY_UPLOAD_PRESET = "nugttah_uploads";
+
+  function cloudinaryReady(){
+    return CLOUDINARY_CLOUD_NAME.indexOf('PASTE_YOUR') !== 0
+        && CLOUDINARY_UPLOAD_PRESET.indexOf('PASTE_YOUR') !== 0;
+  }
+
+  function uploadFile(file, onProgress){
+    return new Promise(function(resolve, reject){
+      if(!cloudinaryReady()){ reject(new Error('cloudinary-not-configured')); return; }
+      var url = 'https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD_NAME + '/auto/upload';
+      var formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', url, true);
+      xhr.upload.onprogress = function(e){
+        if(onProgress && e.lengthComputable){
+          onProgress(Math.round((e.loaded / e.total) * 100));
+        }
+      };
+      xhr.onload = function(){
+        if(xhr.status >= 200 && xhr.status < 300){
+          try{
+            var data = JSON.parse(xhr.responseText);
+            resolve({ name: data.original_filename || file.name, url: data.secure_url });
+          }catch(e){
+            reject(new Error('bad-response-from-cloudinary'));
+          }
+        } else {
+          var msg = 'upload-failed (status ' + xhr.status + ')';
+          try{
+            var errData = JSON.parse(xhr.responseText);
+            if(errData && errData.error && errData.error.message) msg = errData.error.message;
+          }catch(e){}
+          reject(new Error(msg));
+        }
+      };
+      xhr.onerror = function(){ reject(new Error('network-error')); };
+      xhr.send(formData);
+    });
+  }
+
+
+  async function getSubmission(weekId, personId){
+    if(!db) return null;
+    try{
+      var doc = await db.collection('submissions').doc(weekId+'_'+personId).get();
+      return doc.exists ? doc.data() : null;
+    }catch(e){ console.error('getSubmission failed', e); return null; }
+  }
+  async function saveSubmission(weekId, personId, payload){
+    if(!db) throw new Error('firebase-not-configured');
+    await db.collection('submissions').doc(weekId+'_'+personId).set(payload);
+    try{ await ensureWeekInIndex(weekId); }
+    catch(e){ console.error('index update failed (non-fatal)', e); }
+  }
+  // One query for the whole week — Firestore's document-ID range trick,
+  // genuinely a single fast round-trip (this was 8 separate slow calls
+  // back when the backend was Apps Script).
+  async function getSubmittedMap(weekId){
+    var map = {};
+    if(!db) return map;
+    try{
+      var prefix = weekId+'_';
+      var snap = await db.collection('submissions')
+        .orderBy(firebase.firestore.FieldPath.documentId())
+        .startAt(prefix)
+        .endAt(prefix+'\uf8ff')
+        .get();
+      snap.forEach(function(doc){
+        map[doc.id.slice(prefix.length)] = doc.data();
+      });
+    }catch(e){ console.error('getSubmittedMap failed', e); }
+    return map;
+  }
+  async function getWeeksIndex(){
+    if(!db) return [];
+    try{
+      var doc = await db.collection('meta').doc('weeksIndex').get();
+      return (doc.exists && Array.isArray(doc.data().weeks)) ? doc.data().weeks : [];
+    }catch(e){ return []; }
+  }
+  async function ensureWeekInIndex(weekId){
+    var idx = await getWeeksIndex();
+    if(idx.indexOf(weekId) === -1){
+      idx.push(weekId); idx.sort(); idx.reverse();
+      await db.collection('meta').doc('weeksIndex').set({ weeks: idx });
+    }
+  }
+  async function getPin(personId){
+    if(!db) return null;
+    try{
+      var doc = await db.collection('pins').doc(personId).get();
+      return doc.exists ? doc.data().pin : null;
+    }catch(e){ console.error('getPin failed', e); return null; }
+  }
+  async function setPin(personId, pin){
+    if(!db) throw new Error('firebase-not-configured');
+    await db.collection('pins').doc(personId).set({ pin: pin });
+  }
+  async function deletePin(personId){
+    if(!db) return false;
+    try{ await db.collection('pins').doc(personId).delete(); return true; }
+    catch(e){ console.error('deletePin failed', e); return false; }
+  }
+
+
+  // ---------- shared render helper ----------
+  function normalizeAttachments(items){
+    if(!items) return [];
+    if(Array.isArray(items)){
+      return items.map(function(it){
+        if(it && typeof it === 'object') return { name: it.name || it.url, url: it.url };
+        return { name: String(it), url: String(it) };
+      });
+    }
+    if(typeof items === 'string' && items.trim()){
+      return items.split('\n').map(function(s){ return s.trim(); }).filter(Boolean).map(function(link){
+        return { name: link, url: link };
+      });
+    }
+    return [];
+  }
+  function attachmentLinksHtml(sub){
+    var list = normalizeAttachments(sub && sub.attachments);
+    if(!list.length) return '';
+    var out = '<div class="qa"><div class="q">Attachments</div><div class="a">';
+    list.forEach(function(item){
+      var safeHref = /^https?:\/\//i.test(item.url) ? esc(item.url) : '#';
+      out += '<div><a href="'+safeHref+'" target="_blank" rel="noopener noreferrer">📎 '+esc(item.name)+'</a></div>';
+    });
+    out += '</div></div>';
+    return out;
+  }
+  function personCardHtml(person, sub){
+    var out = '<div class="card person-card">';
+    out += '  <div class="person-head"><div><div class="person-name">'+esc(person.name)+'</div><div class="person-title">'+esc(person.title)+'</div></div></div>';
+    if(sub){
+      person.questions.forEach(function(q){
+        var ans = (sub.answers && sub.answers[q.id]) ? sub.answers[q.id] : '';
+        if(!ans) return;
+        out += '<div class="qa"><div class="q">'+esc(q.label)+'</div><div class="a">'+nl2br(ans)+'</div></div>';
+      });
+      out += attachmentLinksHtml(sub);
+      out += '<div class="meta-time">Submitted '+esc(formatTime(sub.submittedAt))+'</div>';
+    } else {
+      out += '<div class="empty-note">No update submitted yet.</div>';
+    }
+    out += '</div>';
+    return out;
+  }
+
+  // ---------- app state ----------
+  var state = {
+    identity: null,        // {type:'member', person} | {type:'manager'}
+    pendingPerson: null,   // person mid-passcode-flow, before identity is confirmed
+    pinMode: null,         // 'create' | 'enter'
+    activeTab: 'submit',
+    submitWeekId: currentWeekId(),
+    myReportWeekId: currentWeekId(),
+    reportWeekId: currentWeekId()
+  };
+
+  var authArea = document.getElementById('authArea');
+  var topRow = document.getElementById('topRow');
+  var tabsEl = document.getElementById('tabs');
+  var viewEl = document.getElementById('view');
+  var subline = document.getElementById('subline');
+
+  function showToast(msg){
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(function(){ t.classList.remove('show'); }, 2600);
+  }
+
+  // ================= IDENTITY GATE =================
+  function renderGate(){
+    tabsEl.style.display = 'none';
+    topRow.style.display = 'none';
+    viewEl.innerHTML = '';
+    subline.textContent = "Pick your name to check in, or use manager access below.";
+
+    var out = '';
+    if(!firebaseReady()){
+      out += '<div class="card" style="margin-bottom:16px;border:1.6px dashed #c0483f;">';
+      out += '  <div style="font-weight:700;color:#c0483f;margin-bottom:6px;">Setup not finished</div>';
+      out += '  <div style="font-size:13.5px;">Create a Firebase project, enable Firestore and Storage, then paste your config values into the <code>FIREBASE_CONFIG</code> constant near the top of the script.</div>';
+      out += '</div>';
+    }
+    out += '<div class="card">';
+    DEPT_ORDER.forEach(function(dept){
+      var people = teamByDept(dept);
+      if(!people.length) return;
+      out += '<div class="dept-group"><div class="dept-label">'+esc(dept)+'</div><div class="chip-grid">';
+      people.forEach(function(p){
+        out += '<button type="button" class="chip" data-person="'+p.id+'">';
+        out += p.photo
+          ? '  <img class="avatar-photo" src="'+p.photo+'" alt="'+esc(p.name)+'">'
+          : '  <span class="avatar">'+esc(initials(p.name))+'</span>';
+        out += '  <span class="name">'+esc(p.name)+'</span>';
+        out += '  <span class="title">'+esc(p.title)+'</span>';
+        out += '</button>';
+      });
+      out += '</div></div>';
+    });
+    out += '  <div class="or-divider">or</div>';
+    out += '  <div class="dept-label">Manager access</div>';
+    out += '  <div class="manager-row">';
+    out += '    <img class="avatar-photo" src="'+MANAGER_PHOTO+'" alt="Manager">';
+    out += '    <input type="password" id="managerPin" placeholder="Passcode" autocomplete="off">';
+    out += '    <button type="button" class="btn btn-ghost" id="managerBtn">Enter as manager</button>';
+    out += '  </div>';
+    out += '  <div class="error-text" id="managerError" style="display:none;">That passcode is not right — check with Mazen.</div>';
+    out += '</div>';
+    authArea.innerHTML = out;
+
+    authArea.querySelectorAll('.chip').forEach(function(chip){
+      chip.onclick = function(){
+        startPersonLogin(teamById(chip.dataset.person));
+      };
+    });
+
+    function tryManager(){
+      var val = (document.getElementById('managerPin').value||'').trim().toLowerCase();
+      if(val === MANAGER_PASSCODE){
+        state.identity = { type:'manager' };
+        authArea.innerHTML = '';
+        renderApp();
+      } else {
+        document.getElementById('managerError').style.display = 'block';
+      }
+    }
+    document.getElementById('managerBtn').onclick = tryManager;
+    document.getElementById('managerPin').addEventListener('keydown', function(e){
+      if(e.key === 'Enter') tryManager();
+    });
+  }
+
+  // ================= PER-PERSON PASSCODE =================
+  async function startPersonLogin(person){
+    state.pendingPerson = person;
+    authArea.innerHTML = '<div class="card"><div class="loading">Checking…</div></div>';
+    var existingPin = await getPin(person.id); // null the first time ever
+    state.pinMode = existingPin ? 'enter' : 'create';
+    renderPinForm(existingPin);
+  }
+
+  function renderPinForm(existingPin){
+    var person = state.pendingPerson;
+    var creating = state.pinMode === 'create';
+
+    var out = '<div class="card">';
+    out += '  <button type="button" class="link-btn" id="pinBackBtn">‹ Back</button>';
+    out += '  <div class="person-head" style="margin-top:10px;"><div><div class="person-name">'+esc(person.name)+'</div><div class="person-title">'+esc(person.title)+'</div></div></div>';
+    if(creating){
+      out += '  <div style="font-size:13.5px;color:var(--muted);margin:10px 0 14px;">First time here — set a passcode so only you can open your check-ins. You will enter this every time you sign in as '+esc(person.name)+'.</div>';
+      out += '  <div class="field"><label for="pin1">Create a passcode</label><input type="password" id="pin1" autocomplete="off" maxlength="20"></div>';
+      out += '  <div class="field"><label for="pin2">Confirm passcode</label><input type="password" id="pin2" autocomplete="off" maxlength="20"></div>';
+      out += '  <div class="row" style="margin-top:16px;"><button type="button" class="btn btn-primary" id="pinSubmitBtn">Save passcode</button></div>';
+    } else {
+      out += '  <div style="font-size:13.5px;color:var(--muted);margin:10px 0 14px;">Enter your passcode to continue.</div>';
+      out += '  <div class="field"><label for="pin1">Passcode</label><input type="password" id="pin1" autocomplete="off" maxlength="20"></div>';
+      out += '  <div class="row" style="margin-top:16px;"><button type="button" class="btn btn-primary" id="pinSubmitBtn">Continue</button></div>';
+      out += '  <div style="font-size:12px;color:var(--muted);margin-top:10px;">Forgot it? Ask your manager to reset it for you.</div>';
+    }
+    out += '  <div class="error-text" id="pinError" style="display:none;"></div>';
+    out += '</div>';
+    authArea.innerHTML = out;
+
+    document.getElementById('pinBackBtn').onclick = function(){
+      state.pendingPerson = null;
+      state.pinMode = null;
+      renderGate();
+    };
+
+    function showPinError(msg){
+      var el = document.getElementById('pinError');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    async function submitPin(){
+      var btn = document.getElementById('pinSubmitBtn');
+      var val1 = (document.getElementById('pin1').value||'').trim();
+      if(creating){
+        var val2 = (document.getElementById('pin2').value||'').trim();
+        if(val1.length < 4){ showPinError('Use at least 4 characters.'); return; }
+        if(val1 !== val2){ showPinError('Passcodes do not match.'); return; }
+        btn.disabled = true; btn.textContent = 'Saving…';
+        try{
+          await setPin(person.id, val1);
+          signInAs(person);
+        }catch(e){
+          console.error(e);
+          btn.disabled = false; btn.textContent = 'Save passcode';
+          showPinError('Could not save your passcode — try again.');
+        }
+      } else {
+        if(val1 === String(existingPin)){
+          signInAs(person);
+        } else {
+          showPinError('That passcode is not right.');
+        }
+      }
+    }
+    document.getElementById('pinSubmitBtn').onclick = submitPin;
+    authArea.querySelectorAll('input[type="password"]').forEach(function(inp){
+      inp.addEventListener('keydown', function(e){ if(e.key === 'Enter') submitPin(); });
+    });
+  }
+
+  function signInAs(person){
+    state.identity = { type:'member', person: person };
+    state.pendingPerson = null;
+    state.pinMode = null;
+    state.activeTab = 'submit';
+    authArea.innerHTML = '';
+    renderApp();
+  }
+
+  // ================= APP SHELL =================
+  function renderApp(){
+    topRow.style.display = 'flex';
+    var switchHtml = '<button type="button" class="link-onnavy" id="switchIdentityBtn">Switch identity</button>';
+
+    if(state.identity.type === 'manager'){
+      tabsEl.style.display = 'none';
+      topRow.innerHTML = '<div class="role-note">Manager view — full team report</div>' + switchHtml;
+      subline.textContent = "Compiled from everyone's check-ins — grouped by team.";
+      renderReportView();
+    } else {
+      tabsEl.style.display = 'flex';
+      topRow.innerHTML = '<div class="role-note">Signed in as ' + esc(state.identity.person.name) + '</div>' + switchHtml;
+      tabsEl.innerHTML =
+        '<button class="tab" data-tab="submit">Submit update</button>' +
+        '<button class="tab" data-tab="myreport">My report</button>';
+      tabsEl.querySelectorAll('.tab').forEach(function(btn){
+        btn.classList.toggle('active', btn.dataset.tab === state.activeTab);
+        btn.onclick = function(){
+          state.activeTab = btn.dataset.tab;
+          renderApp();
+        };
+      });
+      subline.textContent = state.activeTab === 'submit'
+        ? "Answer a few quick questions about your week."
+        : "Only your own check-ins — nobody else's.";
+      if(state.activeTab === 'submit') renderSubmitView();
+      else renderMyReportView();
+    }
+
+    document.getElementById('switchIdentityBtn').onclick = function(){
+      state.identity = null;
+      renderGate();
+    };
+  }
+
+  // ================= SUBMIT VIEW (member) =================
+  async function renderSubmitView(){
+    var person = state.identity.person;
+    var weekOptions = [0,1,2].map(function(w){ return weekIdOffset(currentWeekId(), w); });
+
+    var out = '';
+    out += '<div class="card">';
+    out += '  <div class="week-bar">';
+    out += '    <label for="submitWeekSel">Logging for</label>';
+    out += '    <select id="submitWeekSel">';
+    weekOptions.forEach(function(wid, i){
+      var label = i===0 ? 'This week — ' + formatWeekLabel(wid) : (i===1 ? 'Last week — ' + formatWeekLabel(wid) : formatWeekLabel(wid));
+      out += '<option value="'+wid+'" '+(wid===state.submitWeekId?'selected':'')+'>'+esc(label)+'</option>';
+    });
+    out += '    </select>';
+    out += '  </div>';
+    out += '  <div class="perforation"></div>';
+    out += '  <div id="formArea" class="loading">Loading your form…</div>';
+    out += '</div>';
+    viewEl.innerHTML = out;
+
+    document.getElementById('submitWeekSel').onchange = function(e){
+      state.submitWeekId = e.target.value;
+      renderSubmitView();
+    };
+
+    var existing = await getSubmission(state.submitWeekId, person.id);
+    var answers = existing ? existing.answers : {};
+    var currentAttachments = normalizeAttachments(existing && existing.attachments);
+    var formArea = document.getElementById('formArea');
+    formArea.classList.remove('loading');
+
+    var pHtml = '';
+    if(existing) pHtml += '<div class="meta-time" style="margin-bottom:10px;">Last saved '+esc(formatTime(existing.submittedAt))+' — saving again will overwrite it</div>';
+    pHtml += '<form id="answerForm">';
+    person.questions.forEach(function(q){
+      var required = q.id === 'shipped';
+      pHtml += '  <div class="field">';
+      pHtml += '    <label for="q_'+q.id+'">'+esc(q.label)+(required?' *':'')+'</label>';
+      pHtml += '    <textarea id="q_'+q.id+'" name="'+q.id+'" rows="'+(q.id==='shipped'?3:2)+'" '+(required?'required':'')+'>'+esc(answers[q.id]||'')+'</textarea>';
+      pHtml += '  </div>';
+    });
+    pHtml += '  <div class="field">';
+    pHtml += '    <label>Attachments (optional)</label>';
+    pHtml += '    <div class="file-list" id="fileList"></div>';
+    pHtml += '    <div class="row" style="margin-top:8px;justify-content:flex-start;">';
+    pHtml += '      <button type="button" class="btn btn-ghost" id="chooseFilesBtn">+ Add files</button>';
+    pHtml += '    </div>';
+    pHtml += '    <div class="upload-status" id="uploadStatus"></div>';
+    pHtml += '  </div>';
+    pHtml += '  <div class="row" style="margin-top:18px;">';
+    pHtml += '    <button type="submit" class="btn btn-primary">Stamp my update</button>';
+    pHtml += '    <button type="button" id="clearBtn" class="link-btn">Clear my answers</button>';
+    pHtml += '  </div>';
+    pHtml += '</form>';
+    formArea.innerHTML = pHtml;
+
+    function renderFileList(){
+      var el = document.getElementById('fileList');
+      if(!el) return;
+      if(!currentAttachments.length){ el.innerHTML = ''; return; }
+      var html = '';
+      currentAttachments.forEach(function(f, idx){
+        html += '<div class="file-row"><a href="'+esc(f.url)+'" target="_blank" rel="noopener noreferrer">📎 '+esc(f.name)+'</a><button type="button" class="file-remove" data-idx="'+idx+'" title="Remove">✕</button></div>';
+      });
+      el.innerHTML = html;
+      el.querySelectorAll('.file-remove').forEach(function(btn){
+        btn.onclick = function(){
+          currentAttachments.splice(parseInt(btn.dataset.idx, 10), 1);
+          renderFileList();
+        };
+      });
+    }
+    renderFileList();
+
+    document.getElementById('chooseFilesBtn').onclick = function(){
+      document.getElementById('fileInput').click();
+    };
+    document.getElementById('fileInput').onchange = async function(e){
+      var files = Array.prototype.slice.call(e.target.files || []);
+      if(!files.length) return;
+      var statusEl = document.getElementById('uploadStatus');
+      statusEl.classList.add('busy');
+      for(var i=0;i<files.length;i++){
+        statusEl.textContent = 'Uploading ' + files[i].name + ' (' + (i+1) + '/' + files.length + ')… 0%';
+        try{
+          var result = await uploadFile(files[i], function(pct){
+            statusEl.textContent = 'Uploading ' + files[i].name + ' (' + (i+1) + '/' + files.length + ')… ' + pct + '%';
+          });
+          currentAttachments.push(result);
+          renderFileList();
+        }catch(err){
+          console.error(err);
+          var detail = (err && err.message) ? err.message : String(err);
+          if(detail === 'cloudinary-not-configured'){
+            showToast("Setup isn't finished — Mazen needs to add the Cloudinary details yet.");
+          } else {
+            showToast('Upload failed for ' + files[i].name + ': ' + detail);
+          }
+        }
+      }
+      statusEl.classList.remove('busy');
+      statusEl.textContent = '';
+      e.target.value = '';
+    };
+
+    document.getElementById('answerForm').onsubmit = async function(e){
+      e.preventDefault();
+      var submitBtn = e.target.querySelector('button[type="submit"]');
+      submitBtn.disabled = true; submitBtn.textContent = 'Stamping…';
+      var newAnswers = {};
+      person.questions.forEach(function(q){
+        newAnswers[q.id] = document.getElementById('q_'+q.id).value.trim();
+      });
+      var payload = {
+        personId: person.id, name: person.name, title: person.title, dept: person.dept,
+        answers: newAnswers,
+        attachments: currentAttachments,
+        submittedAt: new Date().toISOString()
+      };
+      try{
+        await saveSubmission(state.submitWeekId, person.id, payload);
+        showToast('Stamped! Thanks, ' + person.name + '.');
+        renderSubmitView();
+      }catch(err){
+        console.error(err);
+        submitBtn.disabled = false; submitBtn.textContent = 'Stamp my update';
+        var detail = (err && err.message) ? err.message : String(err);
+        if(detail === 'firebase-not-configured'){
+          showToast("Setup isn't finished — Mazen needs to add the Firebase config yet.");
+        } else {
+          showToast('Save failed: ' + detail + ' — try again or tell Mazen this message.');
+        }
+      }
+    };
+    document.getElementById('clearBtn').onclick = function(){
+      person.questions.forEach(function(q){
+        var el = document.getElementById('q_'+q.id);
+        if(el) el.value = '';
+      });
+      currentAttachments = [];
+      renderFileList();
+    };
+  }
+
+  // ================= MY REPORT VIEW (member — self only) =================
+  async function renderMyReportView(){
+    var person = state.identity.person;
+    var idx = await getWeeksIndex();
+    var thisWeek = currentWeekId();
+    if(idx.indexOf(thisWeek)===-1) idx = [thisWeek].concat(idx);
+    idx.sort(); idx.reverse();
+    if(idx.indexOf(state.myReportWeekId)===-1) state.myReportWeekId = idx[0];
+
+    var out = '';
+    out += '<div class="card">';
+    out += '  <div class="week-bar">';
+    out += '    <label for="myReportWeekSel">Week</label>';
+    out += '    <select id="myReportWeekSel">';
+    idx.forEach(function(wid){
+      out += '<option value="'+wid+'" '+(wid===state.myReportWeekId?'selected':'')+'>'+esc(formatWeekLabel(wid))+(wid===thisWeek?' (current)':'')+'</option>';
+    });
+    out += '    </select>';
+    out += '  </div>';
+    out += '</div>';
+    out += '<div id="myReportBody" class="loading">Loading…</div>';
+    viewEl.innerHTML = out;
+
+    document.getElementById('myReportWeekSel').onchange = function(e){
+      state.myReportWeekId = e.target.value;
+      renderMyReportView();
+    };
+
+    var sub = await getSubmission(state.myReportWeekId, person.id);
+    var bodyHtml = personCardHtml(person, sub);
+    if(!sub){
+      bodyHtml += '<div class="card" style="margin-top:12px;">';
+      bodyHtml += '  <div style="font-size:13.5px;color:var(--muted);margin-bottom:10px;">Head to Submit update to check in for this week.</div>';
+      bodyHtml += '  <button type="button" class="btn btn-primary" id="goSubmitBtn">Submit update</button>';
+      bodyHtml += '</div>';
+    }
+    var el = document.getElementById('myReportBody');
+    el.classList.remove('loading');
+    el.innerHTML = bodyHtml;
+    var goBtn = document.getElementById('goSubmitBtn');
+    if(goBtn) goBtn.onclick = function(){ state.activeTab='submit'; renderApp(); };
+  }
+
+  // ================= REPORT VIEW (manager — full team) =================
+  async function renderReportView(){
+    var idx = await getWeeksIndex();
+    var thisWeek = currentWeekId();
+    if(idx.indexOf(thisWeek)===-1) idx = [thisWeek].concat(idx);
+    idx.sort(); idx.reverse();
+    if(idx.indexOf(state.reportWeekId)===-1) state.reportWeekId = idx[0];
+
+    var out = '';
+    out += '<div class="card">';
+    out += '  <div class="week-bar">';
+    out += '    <label for="reportWeekSel">Week</label>';
+    out += '    <select id="reportWeekSel">';
+    idx.forEach(function(wid){
+      out += '<option value="'+wid+'" '+(wid===state.reportWeekId?'selected':'')+'>'+esc(formatWeekLabel(wid))+(wid===thisWeek?' (current)':'')+'</option>';
+    });
+    out += '    </select>';
+    out += '  </div>';
+    out += '  <div class="perforation"></div>';
+    out += '  <div id="stampSummary" class="loading">Loading stamps for this week…</div>';
+    out += '</div>';
+    out += '<div id="reportBody"></div>';
+    viewEl.innerHTML = out;
+
+    document.getElementById('reportWeekSel').onchange = function(e){
+      state.reportWeekId = e.target.value;
+      renderReportView();
+    };
+
+    var submitted = await getSubmittedMap(state.reportWeekId);
+    var count = Object.keys(submitted).length;
+
+    var summaryEl = document.getElementById('stampSummary');
+    summaryEl.classList.remove('loading');
+    var stampsHtml = '<div class="stamp-summary"><div class="stamp-row">';
+    TEAM.forEach(function(p){
+      var done = !!submitted[p.id];
+      stampsHtml += '<span class="stamp'+(done?' filled':'')+'" title="'+esc(p.name)+(done?' — submitted':' — pending')+'">'+esc(initials(p.name))+'</span>';
+    });
+    stampsHtml += '</div><div class="stamp-count">'+count+' / '+TEAM.length+' stamped</div></div>';
+    summaryEl.innerHTML = stampsHtml;
+
+    var bodyHtml = '';
+    DEPT_ORDER.forEach(function(dept){
+      var people = teamByDept(dept);
+      if(!people.length) return;
+      bodyHtml += '<div class="report-dept-title">'+esc(dept)+'</div>';
+      people.forEach(function(p){
+        bodyHtml += personCardHtml(p, submitted[p.id]);
+      });
+    });
+    bodyHtml += '<div class="actions">';
+    bodyHtml += '  <button class="btn btn-primary" id="exportBtn">Export branded report</button>';
+    bodyHtml += '  <button class="btn btn-ghost" id="copyBtn">Copy report as text</button>';
+    bodyHtml += '  <button class="btn btn-ghost" id="printBtn">Print / save as PDF</button>';
+    bodyHtml += '</div>';
+    bodyHtml += '<div class="card" style="margin-top:24px;">';
+    bodyHtml += '  <div class="dept-label">Reset a passcode</div>';
+    bodyHtml += '  <div style="font-size:13px;color:var(--muted);margin-bottom:12px;">If someone forgets their passcode, reset it here — they will be asked to set a new one next time they sign in.</div>';
+    bodyHtml += '  <div class="manager-row">';
+    bodyHtml += '    <select id="resetPersonSel" style="max-width:220px;">';
+    TEAM.forEach(function(p){ bodyHtml += '<option value="'+p.id+'">'+esc(p.name)+'</option>'; });
+    bodyHtml += '    </select>';
+    bodyHtml += '    <button type="button" class="btn btn-ghost" id="resetPinBtn">Reset passcode</button>';
+    bodyHtml += '  </div>';
+    bodyHtml += '</div>';
+    document.getElementById('reportBody').innerHTML = bodyHtml;
+
+    document.getElementById('printBtn').onclick = function(){ window.print(); };
+    document.getElementById('exportBtn').onclick = function(){
+      var html = buildBrandedReport(state.reportWeekId, submitted);
+      var win = window.open('', '_blank');
+      if(!win){ showToast('Pop-up blocked — allow pop-ups for this page and try again.'); return; }
+      win.document.write(html);
+      win.document.close();
+    };
+    document.getElementById('copyBtn').onclick = async function(){
+      var text = buildPlainTextReport(state.reportWeekId, submitted);
+      try{
+        await navigator.clipboard.writeText(text);
+        showToast('Report copied to clipboard.');
+      }catch(e){
+        showToast('Could not copy automatically — select the report text manually.');
+      }
+    };
+    document.getElementById('resetPinBtn').onclick = async function(){
+      var sel = document.getElementById('resetPersonSel');
+      var pid = sel.value;
+      var pname = sel.options[sel.selectedIndex].text;
+      if(!confirm('Reset the passcode for ' + pname + '? They will need to set a new one next time.')) return;
+      var ok = await deletePin(pid);
+      showToast(ok ? (pname + '’s passcode was reset.') : 'Could not reset it — try again.');
+    };
+  }
+
+  function buildPlainTextReport(weekId, submitted){
+    var lines = [];
+    lines.push('NUGTTAH — WEEKLY GROWTH LOG');
+    lines.push(formatWeekLabel(weekId));
+    lines.push('');
+    DEPT_ORDER.forEach(function(dept){
+      var people = teamByDept(dept);
+      if(!people.length) return;
+      lines.push('== ' + dept.toUpperCase() + ' ==');
+      people.forEach(function(p){
+        var sub = submitted[p.id];
+        lines.push('');
+        lines.push(p.name + ' — ' + p.title);
+        if(sub){
+          p.questions.forEach(function(q){
+            var ans = (sub.answers && sub.answers[q.id]) ? sub.answers[q.id] : '';
+            if(!ans) return;
+            lines.push('  ' + q.label);
+            lines.push('  > ' + ans.replace(/\n/g,'\n  > '));
+          });
+          var attList = normalizeAttachments(sub.attachments);
+          if(attList.length){
+            lines.push('  Attachments');
+            attList.forEach(function(item){ lines.push('  > ' + item.name + ' — ' + item.url); });
+          }
+        } else {
+          lines.push('  (no update submitted)');
+        }
+      });
+      lines.push('');
+    });
+    return lines.join('\n');
+  }
+
+  function buildBrandedReport(weekId, submitted){
+    var weekLabel = formatWeekLabel(weekId);
+    var submittedCount = Object.keys(submitted).length;
+    var now = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+
+    var body = '';
+    DEPT_ORDER.forEach(function(dept){
+      var people = teamByDept(dept);
+      if(!people.length) return;
+      body += '<div class="dept-section">';
+      body += '  <h2 class="dept-title">'+esc(dept)+'</h2>';
+      people.forEach(function(p){
+        var sub = submitted[p.id];
+        body += '<div class="person-card">';
+        body += '  <div class="person-header">';
+        body += '    <div class="person-avatar">'+esc(initials(p.name))+'</div>';
+        body += '    <div><div class="person-name">'+esc(p.name)+'</div><div class="person-role">'+esc(p.title)+'</div></div>';
+        body += '  </div>';
+        if(sub){
+          p.questions.forEach(function(q){
+            var ans = (sub.answers && sub.answers[q.id]) ? sub.answers[q.id] : '';
+            if(!ans) return;
+            body += '<div class="qa"><div class="q-label">'+esc(q.label)+'</div><div class="a-text">'+nl2br(ans)+'</div></div>';
+          });
+          var atts = normalizeAttachments(sub.attachments);
+          if(atts.length){
+            body += '<div class="qa"><div class="q-label">Attachments</div><div class="a-text">';
+            atts.forEach(function(a){
+              body += '<a href="'+esc(a.url)+'" target="_blank">'+esc(a.name)+'</a><br>';
+            });
+            body += '</div></div>';
+          }
+          body += '<div class="submitted-at">Submitted '+esc(formatTime(sub.submittedAt))+'</div>';
+        } else {
+          body += '<div class="no-update">No update submitted</div>';
+        }
+        body += '</div>';
+      });
+      body += '</div>';
+    });
+
+    return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">'
+    + '<title>Nugttah Weekly Growth Log — '+esc(weekLabel)+'</title>'
+    + '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">'
+    + '<style>'
+    + '*{box-sizing:border-box;margin:0;padding:0;}'
+    + 'body{font-family:"Inter",-apple-system,sans-serif;color:#0b2a40;background:#fff;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
+    + '.cover{background:#14435e;color:#fff;padding:52px 48px 44px;position:relative;overflow:hidden;}'
+    + '.cover::before{content:"";position:absolute;top:-300px;left:50%;transform:translateX(-50%);width:1000px;height:1000px;border-radius:50%;border:1px solid rgba(255,255,255,0.12);pointer-events:none;}'
+    + '.eyebrow{font-size:11px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#9dd3bc;margin-bottom:10px;}'
+    + '.cover h1{font-family:"Poppins",sans-serif;font-weight:600;font-size:32px;line-height:1.1;}'
+    + '.cover-underline{width:50px;height:3.5px;border-radius:3px;background:#9dd3bc;margin:14px 0 12px;}'
+    + '.cover-meta{font-size:13px;color:rgba(255,255,255,0.6);margin-top:6px;}'
+    + '.stamp-bar{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap;align-items:center;}'
+    + '.stamp{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;border:1.4px dashed rgba(255,255,255,0.35);color:rgba(255,255,255,0.4);}'
+    + '.stamp.filled{border:1.4px solid #3f9b72;background:#3f9b72;color:#fff;transform:rotate(-6deg);}'
+    + '.stamp-count{font-size:12px;color:rgba(255,255,255,0.5);margin-left:6px;}'
+    + '.content{max-width:700px;margin:0 auto;padding:32px 36px 48px;}'
+    + '.dept-section{margin-bottom:28px;}'
+    + '.dept-title{font-family:"Poppins",sans-serif;font-weight:600;font-size:17px;color:#14435e;padding-bottom:8px;border-bottom:2.5px solid #9dd3bc;margin-bottom:16px;display:inline-block;}'
+    + '.person-card{background:#f8faf9;border:1px solid #e4ece8;border-radius:10px;padding:18px 20px;margin-bottom:14px;page-break-inside:avoid;}'
+    + '.person-header{display:flex;align-items:center;gap:12px;margin-bottom:12px;}'
+    + '.person-avatar{width:36px;height:36px;border-radius:50%;background:#14435e;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;}'
+    + '.person-name{font-family:"Poppins",sans-serif;font-weight:600;font-size:15px;}'
+    + '.person-role{font-size:11.5px;color:rgba(11,42,64,0.55);}'
+    + '.qa{margin-top:10px;}'
+    + '.q-label{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:#d89a46;margin-bottom:3px;}'
+    + '.a-text{font-size:13.5px;line-height:1.55;color:#1a3a50;}'
+    + '.a-text a{color:#14435e;font-weight:600;}'
+    + '.submitted-at{font-size:10.5px;color:rgba(11,42,64,0.45);margin-top:10px;}'
+    + '.no-update{font-size:13px;color:rgba(11,42,64,0.45);font-style:italic;padding:8px 0;}'
+    + '.footer{text-align:center;font-size:10.5px;color:rgba(11,42,64,0.35);padding:24px 0 32px;border-top:1px solid #e8ece9;margin-top:24px;}'
+    + '@media print{.cover{-webkit-print-color-adjust:exact;print-color-adjust:exact;}.content{padding:20px 0;}}'
+    + '@page{margin:0.6in 0.5in;}'
+    + '</style></head><body>'
+    + '<div class="cover">'
+    + '  <div class="eyebrow">Nugttah · Marketing Team</div>'
+    + '  <h1>Weekly Growth Log</h1>'
+    + '  <div class="cover-underline"></div>'
+    + '  <div class="cover-meta">'+esc(weekLabel)+' · Generated '+esc(now)+'</div>'
+    + '  <div class="stamp-bar">'
+    + TEAM.map(function(p){
+        return '<span class="stamp'+(submitted[p.id]?' filled':'')+'" title="'+esc(p.name)+'">'+esc(initials(p.name))+'</span>';
+      }).join('')
+    + '  <span class="stamp-count">'+submittedCount+' / '+TEAM.length+' stamped</span>'
+    + '  </div>'
+    + '</div>'
+    + '<div class="content">'
+    + body
+    + '<div class="footer">Nugttah Weekly Growth Log · Internal document · '+esc(weekLabel)+'</div>'
+    + '</div>'
+    + '<script>window.onload=function(){window.print();}<\/script>'
+    + '</body></html>';
+  }
+
+  // ---------- init ----------
+  renderGate();
+})();
+</script>
+</body>
+</html>
