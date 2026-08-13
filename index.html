@@ -1093,6 +1093,12 @@
     document.getElementById('printBtn').onclick = function(){ window.print(); };
     document.getElementById('exportBtn').onclick = async function(){
       var exportBtn = this;
+      // Played immediately, synchronously, inside the click handler — not after
+      // the Firestore awaits below. Browsers (Safari especially) revoke the
+      // "user activation" a click grants once real async work (network calls)
+      // happens first, silently blocking any .play() that comes after it.
+      // Firing it here, at the very start, keeps it tied to the click itself.
+      playSubmitSound();
       var weeksBack = parseInt(document.getElementById('exportRangeInput').value, 10) || 1;
       if(weeksBack < 1) weeksBack = 1;
       if(weeksBack > 26) weeksBack = 26;
@@ -1107,7 +1113,6 @@
       var html = buildBrandedReport(weekIds, dataByWeek);
       var win = window.open('', '_blank');
       if(!win){ showToast('Pop-up blocked — allow pop-ups for this page and try again.'); return; }
-      playSubmitSound();
       win.document.write(html);
       win.document.close();
     };
