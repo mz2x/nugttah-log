@@ -1107,6 +1107,7 @@
       var html = buildBrandedReport(weekIds, dataByWeek);
       var win = window.open('', '_blank');
       if(!win){ showToast('Pop-up blocked — allow pop-ups for this page and try again.'); return; }
+      playSubmitSound();
       win.document.write(html);
       win.document.close();
     };
