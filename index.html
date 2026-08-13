@@ -152,6 +152,8 @@
     color:#fff;
     transform:rotate(-6deg);
   }
+  .stamp-photo{padding:0;overflow:hidden;}
+  .stamp-photo img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;}
   .stamp-count{font-family:var(--font-mono);font-size:12.5px;color:var(--muted);}
 
   .field{margin-top:16px;}
@@ -385,6 +387,14 @@
   }
   function nl2br(s){ return esc(s).replace(/\n/g,'<br>'); }
   function initials(name){ return name.slice(0,2).toUpperCase(); }
+  function stampHtml(p, filled){
+    var stateClass = filled ? ' filled' : '';
+    var titleAttr = esc(p.name) + (filled ? ' — submitted' : ' — pending');
+    if(p.photo){
+      return '<span class="stamp stamp-photo'+stateClass+'" title="'+titleAttr+'"><img src="'+p.photo+'" alt=""></span>';
+    }
+    return '<span class="stamp'+stateClass+'" title="'+titleAttr+'">'+esc(initials(p.name))+'</span>';
+  }
   function pad(n){ return n<10 ? '0'+n : ''+n; }
   function toISODate(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
   function getWeekStart(date){
@@ -1034,7 +1044,7 @@
     var stampsHtml = '<div class="stamp-summary"><div class="stamp-row">';
     TEAM.forEach(function(p){
       var done = !!submitted[p.id];
-      stampsHtml += '<span class="stamp'+(done?' filled':'')+'" title="'+esc(p.name)+(done?' — submitted':' — pending')+'">'+esc(initials(p.name))+'</span>';
+      stampsHtml += stampHtml(p, done);
     });
     stampsHtml += '</div><div class="stamp-count">'+count+' / '+TEAM.length+' stamped</div></div>';
     summaryEl.innerHTML = stampsHtml;
@@ -1049,9 +1059,14 @@
       });
     });
     bodyHtml += '<div class="actions">';
+    bodyHtml += '  <select id="exportRangeSel" title="How many weeks to include" style="min-width:140px;">';
+    bodyHtml += '    <option value="1">Last week</option>';
+    bodyHtml += '    <option value="3">Last 3 weeks</option>';
+    bodyHtml += '    <option value="4">Last month</option>';
+    bodyHtml += '  </select>';
     bodyHtml += '  <button class="btn btn-primary" id="exportBtn">Export branded report</button>';
-    bodyHtml += '  <button class="btn btn-ghost" id="copyBtn">Copy report as text</button>';
-    bodyHtml += '  <button class="btn btn-ghost" id="printBtn">Print / save as PDF</button>';
+    bodyHtml += '  <button class="btn btn-primary" id="copyBtn">Copy report as text</button>';
+    bodyHtml += '  <button class="btn btn-primary" id="printBtn">Print / save as PDF</button>';
     bodyHtml += '</div>';
     bodyHtml += '<div class="card" style="margin-top:24px;">';
     bodyHtml += '  <div class="dept-label">Reset a passcode</div>';
@@ -1066,8 +1081,18 @@
     document.getElementById('reportBody').innerHTML = bodyHtml;
 
     document.getElementById('printBtn').onclick = function(){ window.print(); };
-    document.getElementById('exportBtn').onclick = function(){
-      var html = buildBrandedReport(state.reportWeekId, submitted);
+    document.getElementById('exportBtn').onclick = async function(){
+      var exportBtn = this;
+      var weeksBack = parseInt(document.getElementById('exportRangeSel').value, 10) || 1;
+      var weekIds = [];
+      for(var i=0;i<weeksBack;i++){ weekIds.push(weekIdOffset(state.reportWeekId, i)); }
+      exportBtn.disabled = true; exportBtn.textContent = 'Preparing…';
+      var dataByWeek = {};
+      for(var j=0;j<weekIds.length;j++){
+        dataByWeek[weekIds[j]] = (weekIds[j] === state.reportWeekId) ? submitted : await getSubmittedMap(weekIds[j]);
+      }
+      exportBtn.disabled = false; exportBtn.textContent = 'Export branded report';
+      var html = buildBrandedReport(weekIds, dataByWeek);
       var win = window.open('', '_blank');
       if(!win){ showToast('Pop-up blocked — allow pop-ups for this page and try again.'); return; }
       win.document.write(html);
@@ -1126,49 +1151,80 @@
     return lines.join('\n');
   }
 
-  function buildBrandedReport(weekId, submitted){
-    var weekLabel = formatWeekLabel(weekId);
-    var submittedCount = Object.keys(submitted).length;
+  function buildBrandedReport(weekIds, dataByWeek){
     var now = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+    var multi = weekIds.length > 1;
+    var rangeLabel;
+    if(!multi){
+      rangeLabel = formatWeekLabel(weekIds[0]);
+    } else {
+      var latest = weekIds[0], earliest = weekIds[weekIds.length-1];
+      var startD = new Date(earliest+'T00:00:00');
+      var endD = new Date(latest+'T00:00:00'); endD.setDate(endD.getDate()+4);
+      var startStr = startD.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+      var endStr = endD.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+      rangeLabel = startStr + ' – ' + endStr + ' ('+weekIds.length+' weeks)';
+    }
+
+    var unionSubmitted = {};
+    weekIds.forEach(function(wid){
+      Object.keys(dataByWeek[wid] || {}).forEach(function(pid){ unionSubmitted[pid] = true; });
+    });
+    var unionCount = Object.keys(unionSubmitted).length;
 
     var body = '';
-    DEPT_ORDER.forEach(function(dept){
-      var people = teamByDept(dept);
-      if(!people.length) return;
-      body += '<div class="dept-section">';
-      body += '  <h2 class="dept-title">'+esc(dept)+'</h2>';
-      people.forEach(function(p){
-        var sub = submitted[p.id];
-        body += '<div class="person-card">';
-        body += '  <div class="person-header">';
-        body += '    <div class="person-avatar">'+esc(initials(p.name))+'</div>';
-        body += '    <div><div class="person-name">'+esc(p.name)+'</div><div class="person-role">'+esc(p.title)+'</div></div>';
+    weekIds.forEach(function(weekId, idx){
+      var submitted = dataByWeek[weekId] || {};
+      var wCount = Object.keys(submitted).length;
+      body += '<div class="week-block'+(idx===0?' first':'')+'">';
+      if(multi){
+        body += '  <div class="week-block-header">';
+        body += '    <div class="week-block-title">'+esc(formatWeekLabel(weekId))+'</div>';
+        body += '    <div class="week-block-stamps">';
+        body += TEAM.map(function(p){ return stampHtml(p, !!submitted[p.id]); }).join('');
+        body += '      <span class="stamp-count-inline">'+wCount+'/'+TEAM.length+'</span>';
+        body += '    </div>';
         body += '  </div>';
-        if(sub){
-          p.questions.forEach(function(q){
-            var ans = (sub.answers && sub.answers[q.id]) ? sub.answers[q.id] : '';
-            if(!ans) return;
-            body += '<div class="qa"><div class="q-label">'+esc(q.label)+'</div><div class="a-text">'+nl2br(ans)+'</div></div>';
-          });
-          var atts = normalizeAttachments(sub.attachments);
-          if(atts.length){
-            body += '<div class="qa"><div class="q-label">Attachments</div><div class="a-text">';
-            atts.forEach(function(a){
-              body += '<a href="'+esc(a.url)+'" target="_blank">'+esc(a.name)+'</a><br>';
+      }
+      DEPT_ORDER.forEach(function(dept){
+        var people = teamByDept(dept);
+        if(!people.length) return;
+        body += '<div class="dept-section">';
+        body += '  <h2 class="dept-title">'+esc(dept)+'</h2>';
+        people.forEach(function(p){
+          var sub = submitted[p.id];
+          body += '<div class="person-card">';
+          body += '  <div class="person-header">';
+          body += '    <div class="person-avatar">'+esc(initials(p.name))+'</div>';
+          body += '    <div><div class="person-name">'+esc(p.name)+'</div><div class="person-role">'+esc(p.title)+'</div></div>';
+          body += '  </div>';
+          if(sub){
+            p.questions.forEach(function(q){
+              var ans = (sub.answers && sub.answers[q.id]) ? sub.answers[q.id] : '';
+              if(!ans) return;
+              body += '<div class="qa"><div class="q-label">'+esc(q.label)+'</div><div class="a-text">'+nl2br(ans)+'</div></div>';
             });
-            body += '</div></div>';
+            var atts = normalizeAttachments(sub.attachments);
+            if(atts.length){
+              body += '<div class="qa"><div class="q-label">Attachments</div><div class="a-text">';
+              atts.forEach(function(a){
+                body += '<a href="'+esc(a.url)+'" target="_blank">'+esc(a.name)+'</a><br>';
+              });
+              body += '</div></div>';
+            }
+            body += '<div class="submitted-at">Submitted '+esc(formatTime(sub.submittedAt))+'</div>';
+          } else {
+            body += '<div class="no-update">No update submitted</div>';
           }
-          body += '<div class="submitted-at">Submitted '+esc(formatTime(sub.submittedAt))+'</div>';
-        } else {
-          body += '<div class="no-update">No update submitted</div>';
-        }
+          body += '</div>';
+        });
         body += '</div>';
       });
       body += '</div>';
     });
 
     return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">'
-    + '<title>Nugttah Weekly Growth Log — '+esc(weekLabel)+'</title>'
+    + '<title>Nugttah Weekly Growth Log — '+esc(rangeLabel)+'</title>'
     + '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">'
     + '<style>'
     + '*{box-sizing:border-box;margin:0;padding:0;}'
@@ -1182,8 +1238,17 @@
     + '.stamp-bar{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap;align-items:center;}'
     + '.stamp{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;border:1.4px dashed rgba(255,255,255,0.35);color:rgba(255,255,255,0.4);}'
     + '.stamp.filled{border:1.4px solid #3f9b72;background:#3f9b72;color:#fff;transform:rotate(-6deg);}'
+    + '.stamp-photo{padding:0;overflow:hidden;}'
+    + '.stamp-photo img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;}'
     + '.stamp-count{font-size:12px;color:rgba(255,255,255,0.5);margin-left:6px;}'
     + '.content{max-width:700px;margin:0 auto;padding:32px 36px 48px;}'
+    + '.week-block:not(:first-child){page-break-before:always;padding-top:6px;}'
+    + '.week-block-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:22px;padding-bottom:14px;border-bottom:2.5px solid #9dd3bc;}'
+    + '.week-block-title{font-family:"Poppins",sans-serif;font-weight:600;font-size:19px;color:#14435e;}'
+    + '.week-block-stamps{display:flex;align-items:center;gap:5px;flex-wrap:wrap;}'
+    + '.week-block-stamps .stamp{width:26px;height:26px;font-size:9px;border-color:rgba(11,42,64,0.25);color:rgba(11,42,64,0.35);}'
+    + '.week-block-stamps .stamp.filled{border-color:#3f9b72;background:#3f9b72;color:#fff;}'
+    + '.stamp-count-inline{font-size:11px;color:rgba(11,42,64,0.5);margin-left:4px;}'
     + '.dept-section{margin-bottom:28px;}'
     + '.dept-title{font-family:"Poppins",sans-serif;font-weight:600;font-size:17px;color:#14435e;padding-bottom:8px;border-bottom:2.5px solid #9dd3bc;margin-bottom:16px;display:inline-block;}'
     + '.person-card{background:#f8faf9;border:1px solid #e4ece8;border-radius:10px;padding:18px 20px;margin-bottom:14px;page-break-inside:avoid;}'
@@ -1205,17 +1270,15 @@
     + '  <div class="eyebrow">Nugttah · Marketing Team</div>'
     + '  <h1>Weekly Growth Log</h1>'
     + '  <div class="cover-underline"></div>'
-    + '  <div class="cover-meta">'+esc(weekLabel)+' · Generated '+esc(now)+'</div>'
+    + '  <div class="cover-meta">'+esc(rangeLabel)+' · Generated '+esc(now)+'</div>'
     + '  <div class="stamp-bar">'
-    + TEAM.map(function(p){
-        return '<span class="stamp'+(submitted[p.id]?' filled':'')+'" title="'+esc(p.name)+'">'+esc(initials(p.name))+'</span>';
-      }).join('')
-    + '  <span class="stamp-count">'+submittedCount+' / '+TEAM.length+' stamped</span>'
+    + TEAM.map(function(p){ return stampHtml(p, !!unionSubmitted[p.id]); }).join('')
+    + '  <span class="stamp-count">'+unionCount+' / '+TEAM.length+(multi?' contributed':' stamped')+'</span>'
     + '  </div>'
     + '</div>'
     + '<div class="content">'
     + body
-    + '<div class="footer">Nugttah Weekly Growth Log · Internal document · '+esc(weekLabel)+'</div>'
+    + '<div class="footer">Nugttah Weekly Growth Log · Internal document · '+esc(rangeLabel)+'</div>'
     + '</div>'
     + '<script>window.onload=function(){window.print();}<\/script>'
     + '</body></html>';
