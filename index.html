@@ -342,6 +342,17 @@
   }
   .meta-time{font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-top:10px;}
 
+  .mgr-note{margin-top:14px;padding-top:12px;border-top:1px dashed rgba(11,42,64,0.15);}
+  .mgr-note-label{font-family:var(--font-mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--crema-600);margin-bottom:4px;}
+  .mgr-note-view{background:rgba(236,175,95,0.12);border-radius:8px;padding:10px 12px;}
+  .mgr-note-text{font-size:13px;color:var(--ink);white-space:pre-wrap;}
+  .mgr-note-view .mgr-note-edit-btn{margin-top:6px;font-size:11.5px;}
+  .mgr-note-add-btn{font-size:12.5px;}
+  .mgr-note-textarea{
+    width:100%;box-sizing:border-box;border-radius:8px;border:1.4px solid rgba(11,42,64,0.18);
+    padding:8px 10px;font-family:var(--font-body);font-size:13px;resize:vertical;
+  }
+
   .actions{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;}
   .toast{
     position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
@@ -639,6 +650,35 @@
   // One query for the whole week — Firestore's document-ID range trick,
   // genuinely a single fast round-trip (this was 8 separate slow calls
   // back when the backend was Apps Script).
+  async function getManagerNotesMap(weekId){
+    var map = {};
+    if(!db) return map;
+    try{
+      var prefix = weekId+'_';
+      var snap = await db.collection('managerNotes')
+        .orderBy(firebase.firestore.FieldPath.documentId())
+        .startAt(prefix)
+        .endAt(prefix+'\uf8ff')
+        .get();
+      snap.forEach(function(doc){
+        map[doc.id.slice(prefix.length)] = doc.data().note || '';
+      });
+    }catch(e){ console.error('getManagerNotesMap failed', e); }
+    return map;
+  }
+  async function saveManagerNote(weekId, personId, note){
+    if(!db) return false;
+    try{
+      var ref = db.collection('managerNotes').doc(weekId+'_'+personId);
+      if(note){
+        await ref.set({ note: note, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+      } else {
+        await ref.delete();
+      }
+      return true;
+    }catch(e){ console.error('saveManagerNote failed', e); return false; }
+  }
+
   async function getSubmittedMap(weekId){
     var map = {};
     if(!db) return map;
@@ -714,7 +754,7 @@
     out += '</div></div>';
     return out;
   }
-  function personCardHtml(person, sub){
+  function personCardHtml(person, sub, managerNoteInfo){
     var out = '<div class="card person-card">';
     out += '  <div class="person-head"><div><div class="person-name">'+esc(person.name)+'</div><div class="person-title">'+esc(person.title)+'</div></div></div>';
     if(sub){
@@ -728,8 +768,70 @@
     } else {
       out += '<div class="empty-note">No update submitted yet.</div>';
     }
+    // Manager-only note. Only ever passed in from the manager's own report
+    // view (renderReportView) — never from a team member's "My report" tab,
+    // and never read by buildBrandedReport / buildPlainTextReport (they have
+    // their own separate card-building code and never see this object) — so
+    // it structurally cannot leak into Export or Copy.
+    if(managerNoteInfo){
+      var noteVal = managerNoteInfo.note || '';
+      out += '<div class="mgr-note" data-week="'+esc(managerNoteInfo.weekId)+'" data-person="'+esc(person.id)+'" data-note="'+esc(noteVal)+'">';
+      out += '  <div class="mgr-note-view" style="'+(noteVal?'':'display:none;')+'">';
+      out += '    <div class="mgr-note-label">Private note (only you see this)</div>';
+      out += '    <div class="mgr-note-text">'+nl2br(noteVal)+'</div>';
+      out += '    <button type="button" class="link-btn mgr-note-edit-btn">Edit note</button>';
+      out += '  </div>';
+      out += '  <button type="button" class="link-btn mgr-note-add-btn" style="'+(noteVal?'display:none;':'')+'">+ Add private note</button>';
+      out += '  <div class="mgr-note-edit" style="display:none;">';
+      out += '    <textarea class="mgr-note-textarea" rows="2" placeholder="e.g. Bring this up in our 1:1…"></textarea>';
+      out += '    <div style="display:flex;gap:8px;margin-top:6px;">';
+      out += '      <button type="button" class="btn btn-primary mgr-note-save-btn" style="padding:6px 14px;font-size:12.5px;">Save</button>';
+      out += '      <button type="button" class="link-btn mgr-note-cancel-btn">Cancel</button>';
+      out += '    </div>';
+      out += '  </div>';
+      out += '</div>';
+    }
     out += '</div>';
     return out;
+  }
+
+  function wirePersonCardNotes(containerEl){
+    containerEl.querySelectorAll('.mgr-note').forEach(function(box){
+      var weekId = box.dataset.week, personId = box.dataset.person;
+      var viewEl = box.querySelector('.mgr-note-view');
+      var textDiv = box.querySelector('.mgr-note-text');
+      var addBtn = box.querySelector('.mgr-note-add-btn');
+      var editBtn = box.querySelector('.mgr-note-edit-btn');
+      var editBox = box.querySelector('.mgr-note-edit');
+      var textarea = box.querySelector('.mgr-note-textarea');
+      var saveBtn = box.querySelector('.mgr-note-save-btn');
+      var cancelBtn = box.querySelector('.mgr-note-cancel-btn');
+
+      function openEditor(){
+        textarea.value = box.dataset.note || '';
+        editBox.style.display = 'block';
+        addBtn.style.display = 'none';
+        viewEl.style.display = 'none';
+        textarea.focus();
+      }
+      addBtn.onclick = openEditor;
+      editBtn.onclick = openEditor;
+      cancelBtn.onclick = function(){
+        editBox.style.display = 'none';
+        if(box.dataset.note){ viewEl.style.display = 'block'; } else { addBtn.style.display = 'inline'; }
+      };
+      saveBtn.onclick = async function(){
+        saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
+        var val = textarea.value.trim();
+        var ok = await saveManagerNote(weekId, personId, val);
+        saveBtn.disabled = false; saveBtn.textContent = 'Save';
+        if(!ok){ showToast('Could not save the note — try again.'); return; }
+        box.dataset.note = val;
+        textDiv.innerHTML = nl2br(val);
+        editBox.style.display = 'none';
+        if(val){ viewEl.style.display = 'block'; } else { addBtn.style.display = 'inline'; }
+      };
+    });
   }
 
   function personWeekCardHtml(person, weekId, sub){
@@ -1194,6 +1296,7 @@
     }
 
     var submitted = await getSubmittedMap(state.reportWeekId);
+    var notesMap = await getManagerNotesMap(state.reportWeekId);
     var count = Object.keys(submitted).length;
 
     var summaryEl = document.getElementById('stampSummary');
@@ -1212,7 +1315,7 @@
       if(!people.length) return;
       bodyHtml += '<div class="report-dept-title">'+esc(dept)+'</div>';
       people.forEach(function(p){
-        bodyHtml += personCardHtml(p, submitted[p.id]);
+        bodyHtml += personCardHtml(p, submitted[p.id], { weekId: state.reportWeekId, note: notesMap[p.id] || '' });
       });
     });
     bodyHtml += '<div class="card" style="margin-top:24px;max-width:640px;">';
@@ -1242,7 +1345,9 @@
     bodyHtml += '    <button type="button" class="btn btn-ghost" id="resetPinBtn">Reset passcode</button>';
     bodyHtml += '  </div>';
     bodyHtml += '</div>';
-    document.getElementById('reportBody').innerHTML = bodyHtml;
+    var reportBodyEl = document.getElementById('reportBody');
+    reportBodyEl.innerHTML = bodyHtml;
+    wirePersonCardNotes(reportBodyEl);
 
     function getSelectedWeekIds(){
       var checked = Array.prototype.map.call(
