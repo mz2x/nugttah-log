@@ -650,6 +650,55 @@
   // One query for the whole week — Firestore's document-ID range trick,
   // genuinely a single fast round-trip (this was 8 separate slow calls
   // back when the backend was Apps Script).
+  // ---------- per-person question overrides (manager-editable, versioned by effective week) ----------
+  // TEAM[].questions below is the permanent fallback/default. Overrides live
+  // in Firestore as { personId: { versions: [{effectiveWeekId, questions}, ...] } },
+  // fetched once per session into this cache. Every place that used to read
+  // person.questions directly now goes through getEffectiveQuestions(person, weekId)
+  // instead, so historical weeks keep showing whatever questions were active
+  // at the time, even after the manager changes them going forward.
+  var questionOverridesCache = null;
+  async function loadQuestionOverrides(){
+    questionOverridesCache = {};
+    if(!db) return questionOverridesCache;
+    try{
+      var snap = await db.collection('personQuestions').get();
+      snap.forEach(function(doc){
+        var versions = (doc.data().versions || []).slice().sort(function(a,b){
+          return a.effectiveWeekId < b.effectiveWeekId ? -1 : (a.effectiveWeekId > b.effectiveWeekId ? 1 : 0);
+        });
+        questionOverridesCache[doc.id] = versions;
+      });
+    }catch(e){ console.error('loadQuestionOverrides failed', e); }
+    return questionOverridesCache;
+  }
+  function getEffectiveQuestions(person, weekId){
+    var versions = questionOverridesCache && questionOverridesCache[person.id];
+    if(!versions || !versions.length) return person.questions;
+    var active = null;
+    for(var i=0;i<versions.length;i++){
+      if(versions[i].effectiveWeekId <= weekId){ active = versions[i]; } else { break; }
+    }
+    return active ? active.questions : person.questions;
+  }
+  async function saveQuestionOverride(personId, effectiveWeekId, questions){
+    if(!db) return false;
+    try{
+      var ref = db.collection('personQuestions').doc(personId);
+      var doc = await ref.get();
+      var versions = (doc.exists && doc.data().versions) ? doc.data().versions.slice() : [];
+      versions = versions.filter(function(v){ return v.effectiveWeekId !== effectiveWeekId; });
+      versions.push({ effectiveWeekId: effectiveWeekId, questions: questions });
+      await ref.set({ versions: versions });
+      if(questionOverridesCache){
+        questionOverridesCache[personId] = versions.slice().sort(function(a,b){
+          return a.effectiveWeekId < b.effectiveWeekId ? -1 : (a.effectiveWeekId > b.effectiveWeekId ? 1 : 0);
+        });
+      }
+      return true;
+    }catch(e){ console.error('saveQuestionOverride failed', e); return false; }
+  }
+
   async function getManagerNotesMap(weekId){
     var map = {};
     if(!db) return map;
@@ -754,11 +803,11 @@
     out += '</div></div>';
     return out;
   }
-  function personCardHtml(person, sub, managerNoteInfo){
+  function personCardHtml(person, sub, weekId, managerNoteInfo){
     var out = '<div class="card person-card">';
     out += '  <div class="person-head"><div><div class="person-name">'+esc(person.name)+'</div><div class="person-title">'+esc(person.title)+'</div></div></div>';
     if(sub){
-      person.questions.forEach(function(q){
+      getEffectiveQuestions(person, weekId).forEach(function(q){
         var ans = (sub.answers && sub.answers[q.id]) ? sub.answers[q.id] : '';
         if(!ans) return;
         out += '<div class="qa"><div class="q">'+esc(q.label)+'</div><div class="a">'+nl2br(ans)+'</div></div>';
@@ -838,7 +887,7 @@
     var out = '<div class="card person-card">';
     out += '  <div class="person-head"><div class="person-name">'+esc(formatWeekLabel(weekId))+'</div></div>';
     if(sub){
-      person.questions.forEach(function(q){
+      getEffectiveQuestions(person, weekId).forEach(function(q){
         var ans = (sub.answers && sub.answers[q.id]) ? sub.answers[q.id] : '';
         if(!ans) return;
         out += '<div class="qa"><div class="q">'+esc(q.label)+'</div><div class="a">'+nl2br(ans)+'</div></div>';
@@ -861,7 +910,9 @@
     submitWeekId: currentWeekId(),
     myReportWeekId: currentWeekId(),
     reportWeekId: currentWeekId(),
-    reportPersonId: 'all'
+    reportPersonId: 'all',
+    managerView: 'report',      // 'report' | 'questions'
+    qEditorPersonId: null
   };
 
   var authArea = document.getElementById('authArea');
@@ -880,6 +931,7 @@
   // ================= IDENTITY GATE =================
   function renderGate(){
     document.body.classList.add('gate-active');
+    state.managerView = 'report';
     tabsEl.style.display = 'none';
     topRow.style.display = 'none';
     viewEl.innerHTML = '';
@@ -1025,16 +1077,29 @@
   }
 
   // ================= APP SHELL =================
-  function renderApp(){
+  async function renderApp(){
     document.body.classList.remove('gate-active');
     topRow.style.display = 'flex';
+    if(!questionOverridesCache){ await loadQuestionOverrides(); }
     var switchHtml = '<button type="button" class="link-onnavy" id="switchIdentityBtn">Switch identity</button>';
 
     if(state.identity.type === 'manager'){
       tabsEl.style.display = 'none';
-      topRow.innerHTML = '<div class="role-note">Manager view — full team report</div>' + switchHtml;
-      subline.textContent = "Compiled from everyone's check-ins — grouped by team.";
-      renderReportView();
+      if(state.managerView === 'questions'){
+        topRow.innerHTML = '<div class="role-note">Manager view — edit check-in questions</div>'
+          + '<button type="button" class="link-onnavy" id="backToReportBtn">‹ Back to report</button>' + switchHtml;
+        subline.textContent = "Change what each person is asked, and when it takes effect.";
+        renderQuestionEditorView();
+      } else {
+        topRow.innerHTML = '<div class="role-note">Manager view — full team report</div>'
+          + '<button type="button" class="link-onnavy" id="editQuestionsBtn">Edit questions</button>' + switchHtml;
+        subline.textContent = "Compiled from everyone's check-ins — grouped by team.";
+        renderReportView();
+      }
+      var editQBtn = document.getElementById('editQuestionsBtn');
+      if(editQBtn) editQBtn.onclick = function(){ state.managerView = 'questions'; renderApp(); };
+      var backBtn = document.getElementById('backToReportBtn');
+      if(backBtn) backBtn.onclick = function(){ state.managerView = 'report'; renderApp(); };
     } else {
       tabsEl.style.display = 'flex';
       topRow.innerHTML = '<div class="role-note">Signed in as ' + esc(state.identity.person.name) + '</div>' + switchHtml;
@@ -1092,11 +1157,12 @@
     var currentAttachments = normalizeAttachments(existing && existing.attachments);
     var formArea = document.getElementById('formArea');
     formArea.classList.remove('loading');
+    var effectiveQuestions = getEffectiveQuestions(person, state.submitWeekId);
 
     var pHtml = '';
     if(existing) pHtml += '<div class="meta-time" style="margin-bottom:10px;">Last saved '+esc(formatTime(existing.submittedAt))+' — saving again will overwrite it</div>';
     pHtml += '<form id="answerForm">';
-    person.questions.forEach(function(q){
+    effectiveQuestions.forEach(function(q){
       var required = q.id === 'shipped';
       pHtml += '  <div class="field">';
       pHtml += '    <label for="q_'+q.id+'">'+esc(q.label)+(required?' *':'')+'</label>';
@@ -1172,7 +1238,7 @@
       var submitBtn = e.target.querySelector('button[type="submit"]');
       submitBtn.disabled = true; submitBtn.textContent = 'Stamping…';
       var newAnswers = {};
-      person.questions.forEach(function(q){
+      effectiveQuestions.forEach(function(q){
         newAnswers[q.id] = document.getElementById('q_'+q.id).value.trim();
       });
       var payload = {
@@ -1198,7 +1264,7 @@
       }
     };
     document.getElementById('clearBtn').onclick = function(){
-      person.questions.forEach(function(q){
+      effectiveQuestions.forEach(function(q){
         var el = document.getElementById('q_'+q.id);
         if(el) el.value = '';
       });
@@ -1236,7 +1302,7 @@
     };
 
     var sub = await getSubmission(state.myReportWeekId, person.id);
-    var bodyHtml = personCardHtml(person, sub);
+    var bodyHtml = personCardHtml(person, sub, state.myReportWeekId);
     if(!sub){
       bodyHtml += '<div class="card" style="margin-top:12px;">';
       bodyHtml += '  <div style="font-size:13.5px;color:var(--muted);margin-bottom:10px;">Head to Submit update to check in for this week.</div>';
@@ -1315,7 +1381,7 @@
       if(!people.length) return;
       bodyHtml += '<div class="report-dept-title">'+esc(dept)+'</div>';
       people.forEach(function(p){
-        bodyHtml += personCardHtml(p, submitted[p.id], { weekId: state.reportWeekId, note: notesMap[p.id] || '' });
+        bodyHtml += personCardHtml(p, submitted[p.id], state.reportWeekId, { weekId: state.reportWeekId, note: notesMap[p.id] || '' });
       });
     });
     bodyHtml += '<div class="card" style="margin-top:24px;max-width:640px;">';
@@ -1453,6 +1519,104 @@
     };
   }
 
+  // Manager-only view: edit each person's check-in questions, choosing
+  // whether the change applies from this week onward or starting next week.
+  // Saves go through saveQuestionOverride(), which versions by effective
+  // week — past weeks keep showing whatever questions were active back then.
+  function questionRowHtml(id, label){
+    return '<div class="qRow" data-id="'+esc(id)+'" style="display:flex;gap:8px;align-items:flex-start;">'
+      + '<textarea class="qRow-label" rows="2" style="flex:1;box-sizing:border-box;resize:vertical;padding:8px 10px;border-radius:8px;border:1.4px solid rgba(11,42,64,0.18);font-family:var(--font-body);font-size:13.5px;">'+esc(label)+'</textarea>'
+      + '<button type="button" class="link-btn qRow-remove" style="margin-top:8px;flex-shrink:0;">Remove</button>'
+      + '</div>';
+  }
+
+  async function renderQuestionEditorView(){
+    var out = '<div class="card" style="max-width:640px;">';
+    out += '  <label style="display:flex;align-items:center;gap:10px;font-size:13.5px;font-weight:600;color:var(--muted);flex-wrap:wrap;">';
+    out += '    Team member';
+    out += '    <select id="qEditorPersonSel" style="flex:1;min-width:200px;">';
+    TEAM.forEach(function(p){
+      out += '<option value="'+p.id+'">'+esc(p.name)+' — '+esc(p.title)+'</option>';
+    });
+    out += '    </select>';
+    out += '  </label>';
+    out += '</div>';
+    out += '<div id="qEditorBody" style="margin-top:16px;"></div>';
+    viewEl.innerHTML = out;
+
+    if(!state.qEditorPersonId) state.qEditorPersonId = TEAM[0].id;
+    var sel = document.getElementById('qEditorPersonSel');
+    sel.value = state.qEditorPersonId;
+    sel.onchange = function(e){
+      state.qEditorPersonId = e.target.value;
+      renderQuestionEditorBody();
+    };
+    renderQuestionEditorBody();
+  }
+
+  function renderQuestionEditorBody(){
+    var person = teamById(state.qEditorPersonId);
+    var current = getEffectiveQuestions(person, currentWeekId());
+    var nextWeekId = weekIdOffset(currentWeekId(), -1);
+
+    var html = '<div class="card" style="max-width:640px;">';
+    html += '  <div class="dept-label">Questions for '+esc(person.name)+'</div>';
+    html += '  <div id="qRows" style="display:flex;flex-direction:column;gap:10px;margin-top:10px;">';
+    current.forEach(function(q){ html += questionRowHtml(q.id, q.label); });
+    html += '  </div>';
+    html += '  <button type="button" class="btn btn-ghost" id="qAddRowBtn" style="margin-top:12px;">+ Add question</button>';
+    html += '  <div style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(11,42,64,0.12);">';
+    html += '    <div class="dept-label" style="margin-bottom:8px;">Apply changes starting</div>';
+    html += '    <label style="display:flex;align-items:flex-start;gap:8px;font-size:13.5px;margin-bottom:8px;cursor:pointer;">';
+    html += '      <input type="radio" name="qEffective" value="this" checked style="margin-top:3px;">';
+    html += '      <span>This week ('+esc(formatWeekLabel(currentWeekId()))+') — replaces what everyone sees for this week, even if they already submitted</span>';
+    html += '    </label>';
+    html += '    <label style="display:flex;align-items:flex-start;gap:8px;font-size:13.5px;cursor:pointer;">';
+    html += '      <input type="radio" name="qEffective" value="next" style="margin-top:3px;">';
+    html += '      <span>Next week ('+esc(formatWeekLabel(nextWeekId))+') — this week stays exactly as it is</span>';
+    html += '    </label>';
+    html += '  </div>';
+    html += '  <button type="button" class="btn btn-primary" id="qSaveBtn" style="margin-top:16px;">Save changes for '+esc(person.name)+'</button>';
+    html += '</div>';
+    document.getElementById('qEditorBody').innerHTML = html;
+
+    function wireRemoveButtons(){
+      document.querySelectorAll('.qRow-remove').forEach(function(btn){
+        btn.onclick = function(){ btn.closest('.qRow').remove(); };
+      });
+    }
+    wireRemoveButtons();
+
+    document.getElementById('qAddRowBtn').onclick = function(){
+      document.getElementById('qRows').insertAdjacentHTML('beforeend', questionRowHtml('', ''));
+      wireRemoveButtons();
+    };
+
+    document.getElementById('qSaveBtn').onclick = async function(){
+      var saveBtn = this;
+      var rows = document.querySelectorAll('#qRows .qRow');
+      var newQuestions = [];
+      rows.forEach(function(row){
+        var label = row.querySelector('.qRow-label').value.trim();
+        if(!label) return;
+        var id = row.dataset.id || ('custom' + Date.now().toString(36) + Math.floor(Math.random()*1000));
+        newQuestions.push({ id: id, label: label });
+      });
+      if(!newQuestions.length){ showToast('Add at least one question first.'); return; }
+      var effChoice = document.querySelector('input[name="qEffective"]:checked').value;
+      var effectiveWeekId = effChoice === 'next' ? nextWeekId : currentWeekId();
+      saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
+      var ok = await saveQuestionOverride(person.id, effectiveWeekId, newQuestions);
+      saveBtn.disabled = false; saveBtn.textContent = 'Save changes for ' + person.name;
+      if(ok){
+        showToast('Saved — takes effect ' + (effChoice==='next' ? 'next week.' : 'this week.'));
+        renderQuestionEditorBody();
+      } else {
+        showToast('Could not save — try again.');
+      }
+    };
+  }
+
   function buildPlainTextReport(weekIds, dataByWeek){
     var lines = [];
     lines.push('NUGTTAH — WEEKLY GROWTH LOG');
@@ -1474,7 +1638,7 @@
           lines.push('');
           lines.push(p.name + ' — ' + p.title);
           if(sub){
-            p.questions.forEach(function(q){
+            getEffectiveQuestions(p, weekId).forEach(function(q){
               var ans = (sub.answers && sub.answers[q.id]) ? sub.answers[q.id] : '';
               if(!ans) return;
               lines.push('  ' + q.label);
@@ -1496,7 +1660,8 @@
   }
 
   function buildBrandedReport(weekIds, dataByWeek){
-    var now = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+    var now = new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})
+      + ' on ' + new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
     var multi = weekIds.length > 1;
     var rangeLabel;
     if(!multi){
@@ -1545,7 +1710,7 @@
           body += '    <div><div class="person-name">'+esc(p.name)+'</div><div class="person-role">'+esc(p.title)+'</div></div>';
           body += '  </div>';
           if(sub){
-            p.questions.forEach(function(q){
+            getEffectiveQuestions(p, weekId).forEach(function(q){
               var ans = (sub.answers && sub.answers[q.id]) ? sub.answers[q.id] : '';
               if(!ans) return;
               body += '<div class="qa"><div class="q-label">'+esc(q.label)+'</div><div class="a-text">'+nl2br(ans)+'</div></div>';
@@ -1574,7 +1739,8 @@
     + '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">'
     + '<style>'
     + '*{box-sizing:border-box;margin:0;padding:0;}'
-    + 'body{font-family:"Inter",-apple-system,sans-serif;color:#0b2a40;background:#fff;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
+    + 'body{font-family:"Inter",-apple-system,sans-serif;color:#0b2a40;background:#faf8f4;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;'
+    +   'background-image:radial-gradient(rgba(11,42,64,0.05) 1px, transparent 1px);background-size:16px 16px;}'
     + '.cover{background:#14435e;color:#fff;padding:52px 48px 44px;position:relative;overflow:hidden;}'
     + '.cover::before{content:"";position:absolute;top:-300px;left:50%;transform:translateX(-50%);width:1000px;height:1000px;border-radius:50%;border:1px solid rgba(255,255,255,0.12);pointer-events:none;}'
     + '.eyebrow{font-size:11px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#9dd3bc;margin-bottom:10px;}'
@@ -1597,7 +1763,9 @@
     + '.stamp-count-inline{font-size:11px;color:rgba(11,42,64,0.5);margin-left:4px;}'
     + '.dept-section{margin-bottom:28px;}'
     + '.dept-title{font-family:"Poppins",sans-serif;font-weight:600;font-size:17px;color:#14435e;padding-bottom:8px;border-bottom:2.5px solid #9dd3bc;margin-bottom:16px;display:inline-block;}'
-    + '.person-card{background:#f8faf9;border:1px solid #e4ece8;border-radius:10px;padding:18px 20px;margin-bottom:14px;page-break-inside:avoid;}'
+    + '.person-card{background:#fff;border:1px solid #eef0ea;border-radius:10px;padding:18px 20px 18px 22px;margin-bottom:14px;page-break-inside:avoid;'
+    +   'box-shadow:0 3px 10px -4px rgba(11,42,64,0.12);position:relative;overflow:hidden;}'
+    + '.person-card::before{content:"";position:absolute;top:0;left:0;bottom:0;width:4px;background:#ecaf5f;}'
     + '.person-header{display:flex;align-items:center;gap:12px;margin-bottom:12px;}'
     + '.person-avatar{width:36px;height:36px;border-radius:50%;background:#14435e;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;}'
     + '.person-avatar-photo{padding:0;overflow:hidden;}'
@@ -1618,7 +1786,7 @@
     + '  <div class="eyebrow">Nugttah · Marketing Team</div>'
     + '  <h1>Weekly Growth Log</h1>'
     + '  <div class="cover-underline"></div>'
-    + '  <div class="cover-meta">'+esc(rangeLabel)+' · Generated '+esc(now)+'</div>'
+    + '  <div class="cover-meta">'+esc(rangeLabel)+' · Created by Entidhar at '+esc(now)+'</div>'
     + '  <div class="stamp-bar">'
     + TEAM.map(function(p){ return stampHtml(p, !!unionSubmitted[p.id]); }).join('')
     + '  <span class="stamp-count">'+unionCount+' / '+TEAM.length+(multi?' contributed':' stamped')+'</span>'
