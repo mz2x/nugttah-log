@@ -516,8 +516,22 @@
     try{
       if(!_submitAudio){ _submitAudio = new Audio(SUBMIT_SOUND_SRC); }
       _submitAudio.currentTime = 0;
-      _submitAudio.play().catch(function(e){ console.warn("submit sound blocked", e); });
-    }catch(e){ console.warn("submit sound failed", e); }
+      return _submitAudio.play().catch(function(e){ console.warn("submit sound blocked", e); });
+    }catch(e){ console.warn("submit sound failed", e); return Promise.resolve(); }
+  }
+  // Same as playSubmitSound(), but returns a promise that only resolves once
+  // the clip has actually finished (or ~2.2s have passed as a safety net).
+  // Needed before anything that calls window.print() — a native print dialog
+  // freezes the whole browser the instant it opens, which was cutting the
+  // sound off entirely in Chrome before it had even started rendering.
+  function playSubmitSoundAndWait(){
+    playSubmitSound();
+    return new Promise(function(resolve){
+      var done = false;
+      function finish(){ if(!done){ done = true; resolve(); } }
+      if(_submitAudio){ _submitAudio.addEventListener('ended', finish, {once:true}); }
+      setTimeout(finish, 2200);
+    });
   }
 
   function cloudinaryReady(){
@@ -1155,13 +1169,22 @@
         bodyHtml += personCardHtml(p, submitted[p.id]);
       });
     });
+    bodyHtml += '<div class="card" style="margin-top:24px;">';
+    bodyHtml += '  <div class="dept-label">Select weeks to include</div>';
+    bodyHtml += '  <div style="font-size:13px;color:var(--muted);margin-bottom:12px;">Applies to Export and Copy below — tick any combination, not just recent weeks.</div>';
+    bodyHtml += '  <div id="weekCheckList" style="display:flex;flex-direction:column;gap:8px;max-height:240px;overflow-y:auto;padding-right:4px;">';
+    idx.forEach(function(wid){
+      var checked = (wid === state.reportWeekId) ? ' checked' : '';
+      bodyHtml += '<label style="display:flex;align-items:center;gap:9px;font-size:13.5px;color:var(--ink);cursor:pointer;">';
+      bodyHtml += '  <input type="checkbox" class="weekCheck" value="'+wid+'"'+checked+'>';
+      bodyHtml += '  '+esc(formatWeekLabel(wid))+(wid===thisWeek?' <span style="color:var(--muted);">(current)</span>':'');
+      bodyHtml += '</label>';
+    });
+    bodyHtml += '  </div>';
+    bodyHtml += '</div>';
     bodyHtml += '<div class="actions">';
-    bodyHtml += '  <label style="display:flex;align-items:center;gap:8px;color:rgba(255,255,255,0.75);font-size:13px;font-weight:600;">';
-    bodyHtml += '    Weeks to include: <input type="number" id="exportRangeInput" min="1" max="26" value="1" style="width:64px;">';
-    bodyHtml += '  </label>';
     bodyHtml += '  <button class="btn btn-primary" id="exportBtn">Export branded report</button>';
     bodyHtml += '  <button class="btn btn-primary" id="copyBtn">Copy report as text</button>';
-    bodyHtml += '  <button class="btn btn-primary" id="printBtn">Print / save as PDF</button>';
     bodyHtml += '</div>';
     bodyHtml += '<div class="card" style="margin-top:24px;">';
     bodyHtml += '  <div class="dept-label">Reset a passcode</div>';
@@ -1175,25 +1198,33 @@
     bodyHtml += '</div>';
     document.getElementById('reportBody').innerHTML = bodyHtml;
 
-    document.getElementById('printBtn').onclick = function(){ window.print(); };
+    function getSelectedWeekIds(){
+      var checked = Array.prototype.map.call(
+        document.querySelectorAll('.weekCheck:checked'),
+        function(b){ return b.value; }
+      );
+      return idx.filter(function(wid){ return checked.indexOf(wid) !== -1; });
+    }
+
     document.getElementById('exportBtn').onclick = async function(){
       var exportBtn = this;
-      // Played immediately, synchronously, inside the click handler — not after
-      // the Firestore awaits below. Browsers (Safari especially) revoke the
-      // "user activation" a click grants once real async work (network calls)
-      // happens first, silently blocking any .play() that comes after it.
-      // Firing it here, at the very start, keeps it tied to the click itself.
-      playSubmitSound();
-      var weeksBack = parseInt(document.getElementById('exportRangeInput').value, 10) || 1;
-      if(weeksBack < 1) weeksBack = 1;
-      if(weeksBack > 26) weeksBack = 26;
-      var weekIds = [];
-      for(var i=0;i<weeksBack;i++){ weekIds.push(weekIdOffset(state.reportWeekId, i)); }
+      // Started immediately, synchronously, inside the click handler — tied
+      // to the click itself. Its promise is awaited (alongside the Firestore
+      // fetches below) so the clip is guaranteed to finish BEFORE
+      // window.print() can fire: that print dialog freezes the whole browser
+      // the instant it opens, which was cutting the sound off in Chrome
+      // before it had even started.
+      var soundDone = playSubmitSoundAndWait();
+      var weekIds = getSelectedWeekIds();
+      if(!weekIds.length){ showToast('Pick at least one week first.'); return; }
       exportBtn.disabled = true; exportBtn.textContent = 'Preparing…';
       var dataByWeek = {};
-      for(var j=0;j<weekIds.length;j++){
-        dataByWeek[weekIds[j]] = (weekIds[j] === state.reportWeekId) ? submitted : await getSubmittedMap(weekIds[j]);
-      }
+      var fetchDone = (async function(){
+        for(var j=0;j<weekIds.length;j++){
+          dataByWeek[weekIds[j]] = (weekIds[j] === state.reportWeekId) ? submitted : await getSubmittedMap(weekIds[j]);
+        }
+      })();
+      await Promise.all([soundDone, fetchDone]);
       exportBtn.disabled = false; exportBtn.textContent = 'Export branded report';
       var html = buildBrandedReport(weekIds, dataByWeek);
       var win = window.open('', '_blank');
@@ -1202,7 +1233,13 @@
       win.document.close();
     };
     document.getElementById('copyBtn').onclick = async function(){
-      var text = buildPlainTextReport(state.reportWeekId, submitted);
+      var weekIds = getSelectedWeekIds();
+      if(!weekIds.length){ showToast('Pick at least one week first.'); return; }
+      var dataByWeek = {};
+      for(var j=0;j<weekIds.length;j++){
+        dataByWeek[weekIds[j]] = (weekIds[j] === state.reportWeekId) ? submitted : await getSubmittedMap(weekIds[j]);
+      }
+      var text = buildPlainTextReport(weekIds, dataByWeek);
       try{
         await navigator.clipboard.writeText(text);
         showToast('Report copied to clipboard.');
@@ -1265,36 +1302,44 @@
     };
   }
 
-  function buildPlainTextReport(weekId, submitted){
+  function buildPlainTextReport(weekIds, dataByWeek){
     var lines = [];
     lines.push('NUGTTAH — WEEKLY GROWTH LOG');
-    lines.push(formatWeekLabel(weekId));
+    var multi = weekIds.length > 1;
+    lines.push(multi ? (weekIds.length + ' weeks selected') : formatWeekLabel(weekIds[0]));
     lines.push('');
-    DEPT_ORDER.forEach(function(dept){
-      var people = teamByDept(dept);
-      if(!people.length) return;
-      lines.push('== ' + dept.toUpperCase() + ' ==');
-      people.forEach(function(p){
-        var sub = submitted[p.id];
+    weekIds.forEach(function(weekId){
+      var submitted = dataByWeek[weekId] || {};
+      if(multi){
+        lines.push('#### ' + formatWeekLabel(weekId) + ' ####');
         lines.push('');
-        lines.push(p.name + ' — ' + p.title);
-        if(sub){
-          p.questions.forEach(function(q){
-            var ans = (sub.answers && sub.answers[q.id]) ? sub.answers[q.id] : '';
-            if(!ans) return;
-            lines.push('  ' + q.label);
-            lines.push('  > ' + ans.replace(/\n/g,'\n  > '));
-          });
-          var attList = normalizeAttachments(sub.attachments);
-          if(attList.length){
-            lines.push('  Attachments');
-            attList.forEach(function(item){ lines.push('  > ' + item.name + ' — ' + item.url); });
+      }
+      DEPT_ORDER.forEach(function(dept){
+        var people = teamByDept(dept);
+        if(!people.length) return;
+        lines.push('== ' + dept.toUpperCase() + ' ==');
+        people.forEach(function(p){
+          var sub = submitted[p.id];
+          lines.push('');
+          lines.push(p.name + ' — ' + p.title);
+          if(sub){
+            p.questions.forEach(function(q){
+              var ans = (sub.answers && sub.answers[q.id]) ? sub.answers[q.id] : '';
+              if(!ans) return;
+              lines.push('  ' + q.label);
+              lines.push('  > ' + ans.replace(/\n/g,'\n  > '));
+            });
+            var attList = normalizeAttachments(sub.attachments);
+            if(attList.length){
+              lines.push('  Attachments');
+              attList.forEach(function(item){ lines.push('  > ' + item.name + ' — ' + item.url); });
+            }
+          } else {
+            lines.push('  (no update submitted)');
           }
-        } else {
-          lines.push('  (no update submitted)');
-        }
+        });
+        lines.push('');
       });
-      lines.push('');
     });
     return lines.join('\n');
   }
