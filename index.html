@@ -57,6 +57,34 @@
   }
   @keyframes driftA{0%,100%{transform:translate3d(-28vw,-26vh,0);}50%{transform:translate3d(-14vw,-6vh,0);}}
   @keyframes driftB{0%,100%{transform:translate3d(26vw,22vh,0);}50%{transform:translate3d(12vw,6vh,0);}}
+
+  /* Gate (name-picker) gets a bigger, brighter, always-moving treatment — the
+     "front door" moment. Every other view keeps the smaller, calmer version
+     above (mouse-parallax on desktop, slow drift on touch) so it doesn't
+     distract from reading/filling in a form. Pure CSS, always animating
+     here (not just on touch), so JS mouse-parallax is skipped for this
+     view (see the script below) to avoid the two fighting over transform. */
+  body.gate-active .ambient-glow{
+    width:1200px;height:1200px;margin:-600px 0 0 -600px;filter:blur(120px);
+  }
+  body.gate-active .ambient-glow-1{
+    background:radial-gradient(circle,rgba(236,175,95,0.46),transparent 68%);
+    animation:driftGateA 17s ease-in-out infinite;
+  }
+  body.gate-active .ambient-glow-2{
+    background:radial-gradient(circle,rgba(157,211,188,0.42),transparent 68%);
+    animation:driftGateB 21s ease-in-out infinite;
+  }
+  @keyframes driftGateA{
+    0%,100%{transform:translate3d(-34vw,-30vh,0) scale(1);}
+    33%{transform:translate3d(-8vw,-2vh,0) scale(1.18);}
+    66%{transform:translate3d(-22vw,18vh,0) scale(0.94);}
+  }
+  @keyframes driftGateB{
+    0%,100%{transform:translate3d(32vw,28vh,0) scale(1);}
+    33%{transform:translate3d(10vw,4vh,0) scale(0.92);}
+    66%{transform:translate3d(24vw,-16vh,0) scale(1.16);}
+  }
   @media (prefers-reduced-motion: reduce){
     .ambient-glow{transition:none;animation:none !important;transform:none !important;}
   }
@@ -311,6 +339,11 @@
   .person-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;}
   .person-name{font-family:var(--font-display);font-weight:600;font-size:18px;}
   .person-title{font-size:12px;color:var(--muted);}
+  .person-dept-tag{
+    font-family:var(--font-mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--muted);background:var(--cream-100);border-radius:999px;
+    padding:4px 10px;white-space:nowrap;flex-shrink:0;
+  }
   .qa{margin-top:12px;}
   .qa .q{font-size:12px;font-weight:700;color:var(--crema-600);text-transform:uppercase;letter-spacing:.02em;}
   .qa .a{font-size:14.5px;margin-top:4px;line-height:1.5;}
@@ -694,7 +727,7 @@
   }
   function personCardHtml(person, sub){
     var out = '<div class="card person-card">';
-    out += '  <div class="person-head"><div><div class="person-name">'+esc(person.name)+'</div><div class="person-title">'+esc(person.title)+'</div></div></div>';
+    out += '  <div class="person-head"><div><div class="person-name">'+esc(person.name)+'</div><div class="person-title">'+esc(person.title)+'</div></div><div class="person-dept-tag">'+esc(person.dept)+'</div></div>';
     if(sub){
       person.questions.forEach(function(q){
         var ans = (sub.answers && sub.answers[q.id]) ? sub.answers[q.id] : '';
@@ -1188,16 +1221,13 @@
     summaryEl.innerHTML = stampsHtml;
 
     var bodyHtml = '';
+    bodyHtml += '<div class="report-dept-grid">';
     DEPT_ORDER.forEach(function(dept){
-      var people = teamByDept(dept);
-      if(!people.length) return;
-      bodyHtml += '<div class="report-dept-title">'+esc(dept)+'</div>';
-      bodyHtml += '<div class="report-dept-grid">';
-      people.forEach(function(p){
+      teamByDept(dept).forEach(function(p){
         bodyHtml += personCardHtml(p, submitted[p.id]);
       });
-      bodyHtml += '</div>';
     });
+    bodyHtml += '</div>';
     bodyHtml += '<div class="card" style="margin-top:24px;max-width:640px;">';
     bodyHtml += '  <div class="dept-label">Select weeks to include</div>';
     bodyHtml += '  <div style="font-size:13px;color:var(--muted);margin-bottom:12px;">Applies to Export and Copy below — tick any combination, not just recent weeks.</div>';
@@ -1513,6 +1543,9 @@
   // ---------- ambient background: subtle mouse parallax on desktop ----------
   // Touch devices get the CSS drift animation instead (no mousemove to react
   // to); prefers-reduced-motion disables both, handled entirely in CSS.
+  // The gate (name-picker) has its own bigger, always-on CSS animation —
+  // skipped here entirely, since a JS-set inline transform would just fight
+  // a running CSS animation on the same property every frame.
   (function(){
     var g1 = document.querySelector('.ambient-glow-1');
     var g2 = document.querySelector('.ambient-glow-2');
@@ -1521,6 +1554,7 @@
     if(!window.matchMedia('(hover:hover)').matches) return;
     var raf = null;
     window.addEventListener('mousemove', function(e){
+      if(document.body.classList.contains('gate-active')) return;
       if(raf) return;
       raf = requestAnimationFrame(function(){
         raf = null;
