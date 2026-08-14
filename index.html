@@ -278,16 +278,10 @@
   body.gate-active .brand-underline{margin-inline:auto;}
   body.gate-active .sub{max-width:480px;margin-inline:auto;}
 
-  /* --- manager report facelift: wide layout, cards grid per department --- */
-  body.report-active .wrap{max-width:2200px;width:100%;padding:28px 40px 64px;}
-  .report-dept-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,520px));gap:16px;align-items:start;margin-top:24px;margin-bottom:8px;}
-
   .dept-board{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;margin-top:32px;}
   @media (max-width:640px){
     body.gate-active .wrap{padding:32px 16px 56px;}
     .dept-board{grid-template-columns:1fr;gap:14px;}
-    body.report-active .wrap{padding:24px 16px 48px;}
-    .report-dept-grid{grid-template-columns:1fr;}
   }
   .dept-card{
     display:block;width:100%;
@@ -339,11 +333,6 @@
   .person-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;}
   .person-name{font-family:var(--font-display);font-weight:600;font-size:18px;}
   .person-title{font-size:12px;color:var(--muted);}
-  .person-dept-tag{
-    font-family:var(--font-mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;
-    color:var(--muted);background:var(--cream-100);border-radius:999px;
-    padding:4px 10px;white-space:nowrap;flex-shrink:0;
-  }
   .qa{margin-top:12px;}
   .qa .q{font-size:12px;font-weight:700;color:var(--crema-600);text-transform:uppercase;letter-spacing:.02em;}
   .qa .a{font-size:14.5px;margin-top:4px;line-height:1.5;}
@@ -727,7 +716,7 @@
   }
   function personCardHtml(person, sub){
     var out = '<div class="card person-card">';
-    out += '  <div class="person-head"><div><div class="person-name">'+esc(person.name)+'</div><div class="person-title">'+esc(person.title)+'</div></div><div class="person-dept-tag">'+esc(person.dept)+'</div></div>';
+    out += '  <div class="person-head"><div><div class="person-name">'+esc(person.name)+'</div><div class="person-title">'+esc(person.title)+'</div></div></div>';
     if(sub){
       person.questions.forEach(function(q){
         var ans = (sub.answers && sub.answers[q.id]) ? sub.answers[q.id] : '';
@@ -789,7 +778,6 @@
   // ================= IDENTITY GATE =================
   function renderGate(){
     document.body.classList.add('gate-active');
-    document.body.classList.remove('report-active');
     tabsEl.style.display = 'none';
     topRow.style.display = 'none';
     viewEl.innerHTML = '';
@@ -941,13 +929,11 @@
     var switchHtml = '<button type="button" class="link-onnavy" id="switchIdentityBtn">Switch identity</button>';
 
     if(state.identity.type === 'manager'){
-      document.body.classList.add('report-active');
       tabsEl.style.display = 'none';
       topRow.innerHTML = '<div class="role-note">Manager view — full team report</div>' + switchHtml;
       subline.textContent = "Compiled from everyone's check-ins — grouped by team.";
       renderReportView();
     } else {
-      document.body.classList.remove('report-active');
       tabsEl.style.display = 'flex';
       topRow.innerHTML = '<div class="role-note">Signed in as ' + esc(state.identity.person.name) + '</div>' + switchHtml;
       tabsEl.innerHTML =
@@ -1221,13 +1207,14 @@
     summaryEl.innerHTML = stampsHtml;
 
     var bodyHtml = '';
-    bodyHtml += '<div class="report-dept-grid">';
     DEPT_ORDER.forEach(function(dept){
-      teamByDept(dept).forEach(function(p){
+      var people = teamByDept(dept);
+      if(!people.length) return;
+      bodyHtml += '<div class="report-dept-title">'+esc(dept)+'</div>';
+      people.forEach(function(p){
         bodyHtml += personCardHtml(p, submitted[p.id]);
       });
     });
-    bodyHtml += '</div>';
     bodyHtml += '<div class="card" style="margin-top:24px;max-width:640px;">';
     bodyHtml += '  <div class="dept-label">Select weeks to include</div>';
     bodyHtml += '  <div style="font-size:13px;color:var(--muted);margin-bottom:12px;">Applies to Export and Copy below — tick any combination, not just recent weeks.</div>';
