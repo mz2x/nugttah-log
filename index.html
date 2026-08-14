@@ -792,13 +792,30 @@
     }
     return [];
   }
+  function optimizedCloudinaryUrl(url){
+    // Only caps down real photos (jpg/png/webp/etc.) — a phone photo can
+    // easily be 5-10MB at full resolution. PDFs and other documents are
+    // deliberately left completely untouched: Cloudinary sometimes serves
+    // PDFs through this same /image/upload/ path (it can rasterize PDF
+    // pages), and applying ANY image transformation to one flattens it
+    // down to a single static picture of page 1, killing multi-page/slide
+    // navigation entirely — that's what broke Canva exports earlier.
+    var m = url.match(/^(https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\/)(.*)$/);
+    if(!m) return url;
+    if(!/\.(jpe?g|png|webp|heic|heif|gif|bmp|tiff?)(\?|$)/i.test(url)) return url;
+    return m[1] + 'f_auto,q_auto,w_1600/' + m[2];
+  }
   function attachmentLinksHtml(sub){
     var list = normalizeAttachments(sub && sub.attachments);
     if(!list.length) return '';
     var out = '<div class="qa"><div class="q">Attachments</div><div class="a">';
     list.forEach(function(item){
-      var safeHref = /^https?:\/\//i.test(item.url) ? esc(item.url) : '#';
-      out += '<div><a href="'+safeHref+'" target="_blank" rel="noopener noreferrer">📎 '+esc(item.name)+'</a></div>';
+      if(!/^https?:\/\//i.test(item.url)){
+        out += '<div><a href="#">📎 '+esc(item.name)+'</a></div>';
+        return;
+      }
+      var safeUrl = optimizedCloudinaryUrl(item.url);
+      out += '<div><a href="'+esc(safeUrl)+'" class="attachment-link" data-url="'+esc(safeUrl)+'" target="_blank" rel="noopener noreferrer">📎 '+esc(item.name)+'</a></div>';
     });
     out += '</div></div>';
     return out;
@@ -1647,7 +1664,7 @@
             var attList = normalizeAttachments(sub.attachments);
             if(attList.length){
               lines.push('  Attachments');
-              attList.forEach(function(item){ lines.push('  > ' + item.name + ' — ' + item.url); });
+              attList.forEach(function(item){ lines.push('  > ' + item.name + ' — ' + optimizedCloudinaryUrl(item.url)); });
             }
           } else {
             lines.push('  (no update submitted)');
@@ -1719,7 +1736,7 @@
             if(atts.length){
               body += '<div class="qa"><div class="q-label">Attachments</div><div class="a-text">';
               atts.forEach(function(a){
-                body += '<a href="'+esc(a.url)+'" target="_blank">'+esc(a.name)+'</a><br>';
+                body += '<a href="'+esc(optimizedCloudinaryUrl(a.url))+'" target="_blank">'+esc(a.name)+'</a><br>';
               });
               body += '</div></div>';
             }
@@ -1825,6 +1842,32 @@
       });
     }, {passive:true});
   })();
+
+  // ---------- attachment links: fetch fully before opening ----------
+  // A quick look, not a download — fetch the whole file into memory first
+  // (so it's not still streaming while being scrolled), then open it from
+  // a local blob: URL. Falls back to the plain link if fetch ever fails
+  // (e.g. a CORS edge case) so it never leaves someone stuck.
+  document.addEventListener('click', function(e){
+    var link = e.target.closest('.attachment-link');
+    if(!link) return;
+    e.preventDefault();
+    var url = link.dataset.url;
+    var original = link.textContent;
+    link.textContent = '⏳ Loading…';
+    fetch(url).then(function(resp){
+      if(!resp.ok) throw new Error('fetch failed');
+      return resp.blob();
+    }).then(function(blob){
+      var blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, '_blank');
+      link.textContent = original;
+      setTimeout(function(){ URL.revokeObjectURL(blobUrl); }, 60000);
+    }).catch(function(){
+      window.open(url, '_blank');
+      link.textContent = original;
+    });
+  });
 
   // ---------- init ----------
   renderGate();
