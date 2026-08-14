@@ -233,6 +233,8 @@
   .btn-primary:hover{background:var(--crema-600);}
   .btn-ghost{background:transparent;color:var(--espresso-700);border:1.4px solid rgba(11,42,64,0.22);}
   .btn-ghost:hover{border-color:rgba(11,42,64,0.4);}
+  .btn-ghost-navy{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.88);border:1.4px solid rgba(255,255,255,0.3);}
+  .btn-ghost-navy:hover{background:rgba(255,255,255,0.14);border-color:rgba(255,255,255,0.5);}
   .btn:focus-visible{outline:2px solid var(--espresso-900);outline-offset:2px;}
   .btn[disabled]{opacity:.5;cursor:not-allowed;}
 
@@ -1466,9 +1468,15 @@
     });
     bodyHtml += '  </div>';
     bodyHtml += '</div>';
-    bodyHtml += '<div class="actions">';
-    bodyHtml += '  <button class="btn btn-primary" id="exportBtn">Export branded report</button>';
-    bodyHtml += '  <button class="btn btn-primary" id="copyBtn">Copy report as text</button>';
+    bodyHtml += '<div class="actions" style="flex-direction:column;align-items:flex-start;">';
+    bodyHtml += '  <div style="display:flex;gap:10px;flex-wrap:wrap;">';
+    bodyHtml += '    <button class="btn btn-primary" id="exportBtn">Export branded report</button>';
+    bodyHtml += '    <button class="btn btn-primary" id="copyBtn">Copy report as text</button>';
+    bodyHtml += '  </div>';
+    bodyHtml += '  <div id="exportChoiceRow" style="display:none;gap:10px;flex-wrap:wrap;margin-top:10px;">';
+    bodyHtml += '    <button class="btn btn-ghost-navy" id="exportOriginalBtn">🎨 Nugttah Theme</button>';
+    bodyHtml += '    <button class="btn btn-ghost-navy" id="exportFormalBtn">📄 Formal</button>';
+    bodyHtml += '  </div>';
     bodyHtml += '</div>';
     bodyHtml += '<div class="card" style="margin-top:24px;max-width:640px;">';
     bodyHtml += '  <div class="dept-label">Reset a passcode</div>';
@@ -1492,8 +1500,12 @@
       return idx.filter(function(wid){ return checked.indexOf(wid) !== -1; });
     }
 
-    document.getElementById('exportBtn').onclick = async function(){
-      var exportBtn = this;
+    document.getElementById('exportBtn').onclick = function(){
+      var row = document.getElementById('exportChoiceRow');
+      row.style.display = (row.style.display === 'none') ? 'flex' : 'none';
+    };
+
+    async function runExport(builderFn, btnEl, resetLabel){
       // Started immediately, synchronously, inside the click handler — tied
       // to the click itself. Its promise is awaited (alongside the Firestore
       // fetches below) so the clip is guaranteed to finish BEFORE
@@ -1503,7 +1515,7 @@
       var soundDone = playSubmitSoundAndWait();
       var weekIds = getSelectedWeekIds();
       if(!weekIds.length){ showToast('Pick at least one week first.'); return; }
-      exportBtn.disabled = true; exportBtn.textContent = 'Preparing…';
+      btnEl.disabled = true; btnEl.textContent = 'Preparing…';
       var dataByWeek = {};
       var fetchDone = (async function(){
         for(var j=0;j<weekIds.length;j++){
@@ -1511,12 +1523,19 @@
         }
       })();
       await Promise.all([soundDone, fetchDone]);
-      exportBtn.disabled = false; exportBtn.textContent = 'Export branded report';
-      var html = buildBrandedReport(weekIds, dataByWeek);
+      btnEl.disabled = false; btnEl.textContent = resetLabel;
+      var html = builderFn(weekIds, dataByWeek);
       var win = window.open('', '_blank');
       if(!win){ showToast('Pop-up blocked — allow pop-ups for this page and try again.'); return; }
       win.document.write(html);
       win.document.close();
+      document.getElementById('exportChoiceRow').style.display = 'none';
+    }
+    document.getElementById('exportOriginalBtn').onclick = function(){
+      runExport(buildBrandedReport, this, '🎨 Nugttah Theme');
+    };
+    document.getElementById('exportFormalBtn').onclick = function(){
+      runExport(buildFormalReport, this, '📄 Formal');
     };
     document.getElementById('copyBtn').onclick = async function(){
       var weekIds = getSelectedWeekIds();
@@ -1864,6 +1883,113 @@
     + '<div class="content">'
     + body
     + '<div class="footer">Nugttah Weekly Growth Log · Internal document · '+esc(rangeLabel)+'</div>'
+    + '</div>'
+    + '<script>window.onload=function(){window.print();}<\/script>'
+    + '</body></html>';
+  }
+
+  function buildFormalReport(weekIds, dataByWeek){
+    var now = new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})
+      + ' on ' + new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+    var multi = weekIds.length > 1;
+    var rangeLabel;
+    if(!multi){
+      rangeLabel = formatWeekLabel(weekIds[0]);
+    } else {
+      var latest = weekIds[0], earliest = weekIds[weekIds.length-1];
+      var startD = new Date(earliest+'T00:00:00');
+      var endD = new Date(latest+'T00:00:00'); endD.setDate(endD.getDate()+4);
+      var startStr = startD.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+      var endStr = endD.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+      rangeLabel = startStr + ' – ' + endStr + ' ('+weekIds.length+' weeks)';
+    }
+
+    var body = '';
+    weekIds.forEach(function(weekId, wIdx){
+      var submitted = dataByWeek[weekId] || {};
+      var reportedNames = TEAM.filter(function(p){ return !!submitted[p.id]; }).map(function(p){ return p.name; });
+      var missingNames = TEAM.filter(function(p){ return !submitted[p.id]; }).map(function(p){ return p.name; });
+      body += '<div class="f-week'+(wIdx===0?' first':'')+'">';
+      if(multi){
+        body += '<div class="f-week-title">'+esc(formatWeekLabel(weekId))+'</div>';
+      }
+      body += '<div class="f-attendance"><strong>'+reportedNames.length+' of '+TEAM.length+'</strong> team members reported this week.';
+      if(missingNames.length){ body += ' <span class="f-missing">Not yet reported: '+esc(missingNames.join(', '))+'.</span>'; }
+      body += '</div>';
+      DEPT_ORDER.forEach(function(dept){
+        var people = teamByDept(dept);
+        if(!people.length) return;
+        body += '<div class="f-dept-title">'+esc(dept)+'</div>';
+        people.forEach(function(p){
+          var sub = submitted[p.id];
+          body += '<div class="f-person">';
+          body += '  <div class="f-person-name">'+esc(p.name)+' <span class="f-person-role">— '+esc(p.title)+'</span></div>';
+          if(sub){
+            getEffectiveQuestions(p, weekId).forEach(function(q){
+              var ans = (sub.answers && sub.answers[q.id]) ? sub.answers[q.id] : '';
+              if(!ans) return;
+              body += '<div class="f-qa"><div class="f-q">'+esc(q.label)+'</div><div class="f-a">'+nl2br(ans)+'</div></div>';
+            });
+            var atts = normalizeAttachments(sub.attachments);
+            if(atts.length){
+              body += '<div class="f-qa"><div class="f-q">Attachments</div><div class="f-a">';
+              atts.forEach(function(a){ body += '<a href="'+esc(a.url)+'" target="_blank">'+esc(a.name)+'</a><br>'; });
+              body += '</div></div>';
+            }
+          } else {
+            body += '<div class="f-no-update">No update submitted.</div>';
+          }
+          body += '</div>';
+        });
+      });
+      body += '</div>';
+    });
+
+    return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">'
+    + '<title>Nugttah Weekly Growth Report — '+esc(rangeLabel)+'</title>'
+    + '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600&display=swap" rel="stylesheet">'
+    + '<style>'
+    + '*{box-sizing:border-box;margin:0;padding:0;}'
+    + 'body{font-family:"Inter",-apple-system,sans-serif;color:#16232c;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
+    + '.f-topbar{height:5px;background:#14435e;}'
+    + '.f-page{max-width:680px;margin:0 auto;padding:44px 40px 56px;}'
+    + '.f-masthead{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;padding-bottom:18px;border-bottom:1.5px solid #14435e;margin-bottom:6px;}'
+    + '.f-brand{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#14435e;}'
+    + '.f-title{font-family:"Poppins",sans-serif;font-weight:600;font-size:24px;color:#14435e;margin-top:6px;}'
+    + '.f-range{font-size:13px;color:#5a6b78;margin-top:4px;}'
+    + '.f-meta{font-size:11px;color:#8a97a1;text-align:right;line-height:1.6;}'
+    + '.f-confidential{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#b98a3a;margin:16px 0 28px;}'
+    + '.f-week.first{margin-top:0;}'
+    + '.f-week{margin-top:8px;}'
+    + '.f-week:not(.first){page-break-before:always;padding-top:8px;}'
+    + '.f-week-title{font-family:"Poppins",sans-serif;font-weight:600;font-size:16px;color:#14435e;margin-bottom:10px;}'
+    + '.f-attendance{font-size:13px;color:#32424d;background:#f6f5f1;border-left:3px solid #14435e;padding:10px 14px;margin-bottom:26px;line-height:1.6;}'
+    + '.f-missing{color:#8a5a2a;}'
+    + '.f-dept-title{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#14435e;'
+    +   'border-bottom:1px solid #dfe3e0;padding-bottom:6px;margin:26px 0 14px;}'
+    + '.f-dept-title:first-of-type{margin-top:0;}'
+    + '.f-person{padding-bottom:18px;margin-bottom:18px;border-bottom:1px solid #eef0ea;page-break-inside:avoid;}'
+    + '.f-person:last-child{border-bottom:none;}'
+    + '.f-person-name{font-weight:700;font-size:14.5px;color:#16232c;}'
+    + '.f-person-role{font-weight:400;font-size:12.5px;color:#8a97a1;}'
+    + '.f-qa{margin-top:10px;}'
+    + '.f-q{font-size:11px;font-weight:600;color:#5a6b78;margin-bottom:3px;}'
+    + '.f-a{font-size:13.5px;line-height:1.6;color:#26343e;}'
+    + '.f-a a{color:#14435e;}'
+    + '.f-no-update{font-size:13px;color:#8a97a1;font-style:italic;margin-top:8px;}'
+    + '.f-footer{margin-top:36px;padding-top:16px;border-top:1px solid #dfe3e0;font-size:10.5px;color:#8a97a1;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;}'
+    + '@media print{.f-topbar{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}'
+    + '@page{margin:0.7in 0.6in;}'
+    + '</style></head><body>'
+    + '<div class="f-topbar"></div>'
+    + '<div class="f-page">'
+    + '  <div class="f-masthead">'
+    + '    <div><div class="f-brand">Nugttah</div><div class="f-title">Weekly Growth Report</div><div class="f-range">'+esc(rangeLabel)+'</div></div>'
+    + '    <div class="f-meta">Prepared by Entidhar<br>'+esc(now)+'</div>'
+    + '  </div>'
+    + '  <div class="f-confidential">Confidential — prepared for external distribution</div>'
+    + body
+    + '  <div class="f-footer"><span>Nugttah — Internal Growth Report</span><span>'+esc(rangeLabel)+'</span></div>'
     + '</div>'
     + '<script>window.onload=function(){window.print();}<\/script>'
     + '</body></html>';
