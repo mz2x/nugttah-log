@@ -228,7 +228,8 @@
   .chip .title{font-size:10.5px;color:var(--muted);line-height:1.25;}
 
   /* --- gate facelift: wide "roster board" layout, gate view only --- */
-  body.gate-active .wrap{max-width:1360px;padding:44px 28px 72px;}
+  body.gate-active{display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  body.gate-active .wrap{max-width:1900px;width:94%;padding:44px 28px 72px;}
   body.gate-active .topbar{max-width:600px;margin:0 auto 6px;text-align:center;}
   body.gate-active .topbar::before{left:50%;}
   body.gate-active .brand-underline{margin-inline:auto;}
