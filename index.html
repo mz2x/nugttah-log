@@ -18,12 +18,13 @@
     --cream-50:#ffffff;       /* white — text on navy, card surfaces */
     --cream-100:#dcefe6;      /* light mint tint — selected / highlight bg */
     --crema-500:#ecaf5f;      /* brand amber — logo pill, CTAs, active tab */
-    --crema-600:#d89a46;      /* amber hover */
+    --crema-600:#d89a46;
+    --crema-700:#9a6a24;      /* accessible amber for text on white — 4.71:1 */      /* amber hover */
     --mint-500:#9dd3bc;       /* brand mint — eyebrows, underlines, subheads */
     --green-600:#3f9b72;      /* deep mint — filled stamp / checkmark bg */
     --green-100:#eaf5ef;      /* light mint tint (spare) */
     --ink:#0b2a40;            /* deep navy ink — primary text on white */
-    --muted:rgba(11,42,64,0.58);
+    --muted:rgba(11,42,64,0.64);
     --hollow:rgba(255,255,255,0.16);
     --radius:14px;
     --font-display:'Poppins', -apple-system, sans-serif;
@@ -46,11 +47,11 @@
   /* ---------- gently drifting on touch devices --------------------------------- */
   .ambient-glow{
     position:fixed;top:50%;left:50%;width:760px;height:760px;margin:-380px 0 0 -380px;
-    border-radius:50%;pointer-events:none;z-index:0;filter:blur(90px);
+    border-radius:50%;pointer-events:none;z-index:0;
     transition:transform 1.6s cubic-bezier(.16,1,.3,1);will-change:transform;
   }
-  .ambient-glow-1{background:radial-gradient(circle,rgba(236,175,95,0.30),transparent 70%);transform:translate3d(-28vw,-26vh,0);}
-  .ambient-glow-2{background:radial-gradient(circle,rgba(157,211,188,0.26),transparent 70%);transform:translate3d(26vw,22vh,0);}
+  .ambient-glow-1{background:radial-gradient(circle,rgba(236,175,95,0.22) 0%,rgba(236,175,95,0.12) 30%,rgba(236,175,95,0.04) 55%,transparent 78%);transform:translate3d(-28vw,-26vh,0);}
+  .ambient-glow-2{background:radial-gradient(circle,rgba(157,211,188,0.19) 0%,rgba(157,211,188,0.10) 30%,rgba(157,211,188,0.03) 55%,transparent 78%);transform:translate3d(26vw,22vh,0);}
   @media (hover:none){
     .ambient-glow-1{animation:driftA 24s ease-in-out infinite;}
     .ambient-glow-2{animation:driftB 28s ease-in-out infinite;}
@@ -65,14 +66,14 @@
      here (not just on touch), so JS mouse-parallax is skipped for this
      view (see the script below) to avoid the two fighting over transform. */
   body.gate-active .ambient-glow{
-    width:1200px;height:1200px;margin:-600px 0 0 -600px;filter:blur(120px);
+    width:1200px;height:1200px;margin:-600px 0 0 -600px;
   }
   body.gate-active .ambient-glow-1{
-    background:radial-gradient(circle,rgba(236,175,95,0.46),transparent 68%);
+    background:radial-gradient(circle,rgba(236,175,95,0.34) 0%,rgba(236,175,95,0.22) 25%,rgba(236,175,95,0.08) 50%,transparent 75%);
     animation:driftGateA 17s ease-in-out infinite;
   }
   body.gate-active .ambient-glow-2{
-    background:radial-gradient(circle,rgba(157,211,188,0.42),transparent 68%);
+    background:radial-gradient(circle,rgba(157,211,188,0.31) 0%,rgba(157,211,188,0.20) 25%,rgba(157,211,188,0.07) 50%,transparent 75%);
     animation:driftGateB 21s ease-in-out infinite;
   }
   @keyframes driftGateA{
@@ -117,7 +118,7 @@
   .sub{color:rgba(255,255,255,0.62);font-size:14.5px;margin-top:10px;}
 
   .top-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin:22px 0 14px;}
-  .role-note{color:rgba(255,255,255,0.55);font-size:12.5px;}
+  .role-note{color:rgba(255,255,255,0.65);font-size:12.5px;}
   .link-onnavy{background:none;border:none;color:rgba(255,255,255,0.6);font-size:12.5px;text-decoration:underline;cursor:pointer;padding:0;}
   .link-onnavy:hover{color:#fff;}
 
@@ -143,7 +144,7 @@
     color:var(--ink);
     border-radius:var(--radius);
     padding:22px 22px 24px;
-    box-shadow:0 18px 40px -20px rgba(0,0,0,0.55);
+    box-shadow:0 16px 40px -20px rgba(0,0,0,0.50);
   }
   .card + .card{margin-top:16px;}
 
@@ -171,7 +172,7 @@
   }
   .file-row a{color:var(--ink);text-decoration:none;font-weight:600;}
   .file-row a:hover{text-decoration:underline;}
-  .file-remove{background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;line-height:1;padding:2px 4px;}
+  .file-remove{background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;line-height:1;padding:12px 10px;margin:-10px -6px;}
   .file-remove:hover{color:#c0483f;}
   .upload-status{font-size:12.5px;color:var(--muted);margin-top:8px;}
   .upload-status.busy{animation:pulse 1.4s ease-in-out infinite;}
@@ -186,8 +187,8 @@
     width:34px;height:34px;border-radius:50%;
     display:flex;align-items:center;justify-content:center;
     font-family:var(--font-body);font-size:11px;font-weight:700;
-    border:1.6px dashed rgba(11,42,64,0.26);
-    color:rgba(11,42,64,0.36);
+    border:1.6px dashed rgba(11,42,64,0.42);
+    color:rgba(11,42,64,0.52);
     position:relative;
   }
   .stamp.filled{
@@ -235,46 +236,22 @@
   .btn-ghost:hover{border-color:rgba(11,42,64,0.4);}
   .btn-ghost-navy{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.88);border:1.4px solid rgba(255,255,255,0.3);}
   .btn-ghost-navy:hover{background:rgba(255,255,255,0.14);border-color:rgba(255,255,255,0.5);}
+  .btn-ghost-navy:focus-visible{outline:2px solid var(--crema-500);outline-offset:2px;}
   .btn:focus-visible{outline:2px solid var(--espresso-900);outline-offset:2px;}
   .btn[disabled]{opacity:.5;cursor:not-allowed;}
 
   .row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
-  .link-btn{background:none;border:none;color:var(--muted);font-size:12.5px;text-decoration:underline;cursor:pointer;padding:0;}
+  .link-btn{background:none;border:none;color:var(--muted);font-size:12.5px;text-decoration:underline;cursor:pointer;padding:8px 4px;margin:-8px -4px;}
 
   .week-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px;}
   .week-bar label{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,0.6);}
   .week-bar select{max-width:240px;}
 
   /* --- chip grid (person picker, gate only) --- */
-  .dept-group{margin-top:18px;}
-  .dept-group:first-child{margin-top:2px;}
   .dept-label{
     font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
     color:var(--muted);margin-bottom:8px;
   }
-  .chip-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:10px;}
-  .chip{
-    display:flex;flex-direction:column;align-items:center;gap:6px;
-    padding:12px 8px 10px;border-radius:12px;
-    border:1.4px solid rgba(11,42,64,0.14);background:#fff;
-    cursor:pointer;text-align:center;position:relative;
-    transition:border-color .12s ease, transform .12s ease;
-  }
-  .chip:hover{border-color:var(--crema-500);}
-  .chip:focus-visible{outline:2px solid var(--crema-500);outline-offset:2px;}
-  .avatar{
-    width:40px;height:40px;border-radius:50%;
-    background:var(--espresso-900);color:var(--cream-50);
-    display:flex;align-items:center;justify-content:center;
-    font-family:var(--font-mono);font-weight:600;font-size:13px;
-  }
-  .avatar-photo{
-    width:40px;height:40px;border-radius:50%;
-    object-fit:cover;display:block;
-    border:1.5px solid rgba(11,42,64,0.1);
-  }
-  .chip .name{font-size:12.5px;font-weight:700;color:var(--ink);}
-  .chip .title{font-size:10.5px;color:var(--muted);line-height:1.25;}
 
   /* --- gate facelift: wide "roster board" layout, gate view only --- */
   body.gate-active .wrap{max-width:2200px;width:100%;padding:44px 40px 72px;}
@@ -292,7 +269,7 @@
     display:block;width:100%;
     background:var(--cream-50);border-radius:var(--radius);
     padding:20px 18px 14px;
-    box-shadow:0 18px 40px -22px rgba(0,0,0,0.5);
+    box-shadow:0 16px 40px -20px rgba(0,0,0,0.50);
   }
   .dept-card-label{
     font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
@@ -336,10 +313,10 @@
   .report-dept-title:first-of-type{margin-top:6px;}
   .person-card{margin-bottom:12px;}
   .person-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;}
-  .person-name{font-family:var(--font-display);font-weight:600;font-size:18px;}
+  .person-name{font-family:var(--font-display);font-weight:700;font-size:19px;}
   .person-title{font-size:12px;color:var(--muted);}
   .qa{margin-top:12px;}
-  .qa .q{font-size:12px;font-weight:700;color:var(--crema-600);text-transform:uppercase;letter-spacing:.02em;}
+  .qa .q{font-size:12px;font-weight:700;color:var(--crema-700);text-transform:uppercase;letter-spacing:.02em;}
   .qa .a{font-size:14.5px;margin-top:4px;line-height:1.5;}
   .empty-note{
     margin-top:12px;padding:14px 14px;border-radius:10px;
@@ -407,7 +384,7 @@
     body{background:#fff;color:#000;}
     .topbar .eyebrow{color:#2f6b52;}
     .topbar::before{display:none;}
-    #authArea,#topRow,.tabs,.actions,.week-bar .link-btn,.chip-grid,.dept-group,#formArea,.toast{display:none !important;}
+    #authArea,#topRow,.tabs,.actions,.week-bar .link-btn,#formArea,.toast{display:none !important;}
     .card{box-shadow:none;border:1px solid #ddd;}
     .wrap{max-width:100%;padding:0;}
   }
@@ -427,11 +404,11 @@
   </div>
   <div id="authArea"></div>
   <div class="top-row" id="topRow" style="display:none;"></div>
-  <nav class="tabs" id="tabs" style="display:none;"></nav>
+  <nav class="tabs" id="tabs" style="display:none;" role="tablist"></nav>
   <main id="view"></main>
-  <footer>Internal tool · your check-ins are visible to you and your manager only</footer>
+  <footer>Internal tool · your check-ins are visible to you and your manager only<br><span style="font-size:10px;opacity:0.4;">Build 2026-08-15 00:31</span></footer>
 </div>
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <input type="file" id="fileInput" multiple style="display:none;">
 
@@ -938,7 +915,7 @@
         var val = textarea.value.trim();
         var ok = await saveManagerNote(weekId, personId, val);
         saveBtn.disabled = false; saveBtn.textContent = 'Save';
-        if(!ok){ showToast('Could not save the note — try again.'); return; }
+        if(!ok){ showToast('Couldn\'t save — please try again.'); return; }
         box.dataset.note = val;
         textDiv.innerHTML = nl2br(val);
         editBox.style.display = 'none';
@@ -1168,8 +1145,8 @@
       tabsEl.style.display = 'flex';
       topRow.innerHTML = '<div class="role-note">Signed in as ' + esc(state.identity.person.name) + '</div>' + switchHtml;
       tabsEl.innerHTML =
-        '<button class="tab" data-tab="submit">Submit update</button>' +
-        '<button class="tab" data-tab="myreport">My report</button>';
+        '<button class="tab" data-tab="submit" role="tab">Stamp update</button>' +
+        '<button class="tab" data-tab="myreport" role="tab">My report</button>';
       tabsEl.querySelectorAll('.tab').forEach(function(btn){
         btn.classList.toggle('active', btn.dataset.tab === state.activeTab);
         btn.onclick = function(){
@@ -1286,7 +1263,7 @@
           console.error(err);
           var detail = (err && err.message) ? err.message : String(err);
           if(detail === 'supabase-not-configured'){
-            showToast("Setup isn't finished — Mazen needs to add the Supabase Storage details yet.");
+            showToast("File uploads aren't set up yet — please let your admin know.");
           } else {
             showToast('Upload failed for ' + files[i].name + ': ' + detail);
           }
@@ -1322,9 +1299,9 @@
         submitBtn.disabled = false; submitBtn.textContent = 'Stamp my update';
         var detail = (err && err.message) ? err.message : String(err);
         if(detail === 'firebase-not-configured'){
-          showToast("Setup isn't finished — Mazen needs to add the Firebase config yet.");
+          showToast("The app isn't fully set up yet — please let your admin know.");
         } else {
-          showToast('Save failed: ' + detail + ' — try again or tell Mazen this message.');
+          showToast('Something went wrong while saving — please try again in a moment.');
         }
       }
     };
@@ -1371,7 +1348,7 @@
     if(!sub){
       bodyHtml += '<div class="card" style="margin-top:12px;">';
       bodyHtml += '  <div style="font-size:13.5px;color:var(--muted);margin-bottom:10px;">Head to Submit update to check in for this week.</div>';
-      bodyHtml += '  <button type="button" class="btn btn-primary" id="goSubmitBtn">Submit update</button>';
+      bodyHtml += '  <button type="button" class="btn btn-primary" id="goSubmitBtn">Stamp update</button>';
       bodyHtml += '</div>';
     }
     var el = document.getElementById('myReportBody');
@@ -1450,7 +1427,7 @@
     DEPT_ORDER.forEach(function(dept){
       var people = teamByDept(dept);
       if(!people.length) return;
-      bodyHtml += '<div class="report-dept-title">'+esc(dept)+'</div>';
+      bodyHtml += '<h2 class="report-dept-title">'+esc(dept)+'</h2>';
       people.forEach(function(p){
         bodyHtml += personCardHtml(p, submitted[p.id], state.reportWeekId, { weekId: state.reportWeekId, note: notesMap[p.id] || '' });
       });
@@ -1549,7 +1526,7 @@
         await navigator.clipboard.writeText(text);
         showToast('Report copied to clipboard.');
       }catch(e){
-        showToast('Could not copy automatically — select the report text manually.');
+        showToast('Couldn\'t copy automatically — try selecting the text manually.');
       }
     };
     document.getElementById('resetPinBtn').onclick = async function(){
@@ -1558,7 +1535,7 @@
       var pname = sel.options[sel.selectedIndex].text;
       if(!confirm('Reset the passcode for ' + pname + '? They will need to set a new one next time.')) return;
       var ok = await deletePin(pid);
-      showToast(ok ? (pname + '’s passcode was reset.') : 'Could not reset it — try again.');
+      showToast(ok ? (pname + '’s passcode was reset.') : 'Couldn\'t reset — please try again.');
     };
   }
 
@@ -1700,7 +1677,7 @@
         showToast('Saved — takes effect ' + (effChoice==='next' ? 'next week.' : 'this week.'));
         renderQuestionEditorBody();
       } else {
-        showToast('Could not save — try again.');
+        showToast('Couldn\'t save — please try again.');
       }
     };
   }
@@ -1846,9 +1823,9 @@
     + '.week-block-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:22px;padding-bottom:14px;border-bottom:2.5px solid #9dd3bc;}'
     + '.week-block-title{font-family:"Poppins",sans-serif;font-weight:600;font-size:19px;color:#14435e;}'
     + '.week-block-stamps{display:flex;align-items:center;gap:5px;flex-wrap:wrap;}'
-    + '.week-block-stamps .stamp{width:26px;height:26px;font-size:9px;border-color:rgba(11,42,64,0.25);color:rgba(11,42,64,0.35);}'
+    + '.week-block-stamps .stamp{width:26px;height:26px;font-size:9px;border-color:rgba(11,42,64,0.42);color:rgba(11,42,64,0.52);}'
     + '.week-block-stamps .stamp.filled{border-color:#3f9b72;background:#3f9b72;color:#fff;}'
-    + '.stamp-count-inline{font-size:11px;color:rgba(11,42,64,0.5);margin-left:4px;}'
+    + '.stamp-count-inline{font-size:11px;color:rgba(11,42,64,0.64);margin-left:4px;}'
     + '.dept-section{margin-bottom:28px;}'
     + '.dept-title{font-family:"Poppins",sans-serif;font-weight:600;font-size:17px;color:#14435e;padding-bottom:8px;border-bottom:2.5px solid #9dd3bc;margin-bottom:16px;display:inline-block;}'
     + '.person-card{background:#fff;border:1px solid #eef0ea;border-radius:10px;padding:18px 20px 18px 22px;margin-bottom:14px;page-break-inside:avoid;'
@@ -1859,14 +1836,14 @@
     + '.person-avatar-photo{padding:0;overflow:hidden;}'
     + '.person-avatar-photo img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;}'
     + '.person-name{font-family:"Poppins",sans-serif;font-weight:600;font-size:15px;}'
-    + '.person-role{font-size:11.5px;color:rgba(11,42,64,0.55);}'
+    + '.person-role{font-size:11.5px;color:rgba(11,42,64,0.66);}'
     + '.qa{margin-top:10px;}'
-    + '.q-label{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:#d89a46;margin-bottom:3px;}'
+    + '.q-label{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:#9a6a24;margin-bottom:3px;}'
     + '.a-text{font-size:13.5px;line-height:1.55;color:#1a3a50;}'
     + '.a-text a{color:#14435e;font-weight:600;}'
-    + '.submitted-at{font-size:10.5px;color:rgba(11,42,64,0.45);margin-top:10px;}'
-    + '.no-update{font-size:13px;color:rgba(11,42,64,0.45);font-style:italic;padding:8px 0;}'
-    + '.footer{text-align:center;font-size:10.5px;color:rgba(11,42,64,0.35);padding:24px 0 32px;border-top:1px solid #e8ece9;margin-top:24px;}'
+    + '.submitted-at{font-size:10.5px;color:rgba(11,42,64,0.66);margin-top:10px;}'
+    + '.no-update{font-size:13px;color:rgba(11,42,64,0.66);font-style:italic;padding:8px 0;}'
+    + '.footer{text-align:center;font-size:10.5px;color:rgba(11,42,64,0.64);padding:24px 0 32px;border-top:1px solid #e8ece9;margin-top:24px;}'
     + '@media print{.cover{-webkit-print-color-adjust:exact;print-color-adjust:exact;}.content{padding:20px 0;}}'
     + '@page{margin:0.6in 0.5in;}'
     + '</style></head><body>'
