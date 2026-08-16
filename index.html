@@ -1432,16 +1432,17 @@
 
     var submitted = await getSubmittedMap(state.reportWeekId);
     var notesMap = await getManagerNotesMap(state.reportWeekId);
-    var count = Object.keys(submitted).length;
+    var stampTeam = TEAM.filter(function(p){ return p.id !== MANAGER_PERSON_ID; });
+    var count = stampTeam.filter(function(p){ return !!submitted[p.id]; }).length;
 
     var summaryEl = document.getElementById('stampSummary');
     summaryEl.classList.remove('loading');
     var stampsHtml = '<div class="stamp-summary"><div class="stamp-row">';
-    TEAM.forEach(function(p){
+    stampTeam.forEach(function(p){
       var done = !!submitted[p.id];
       stampsHtml += stampHtml(p, done);
     });
-    stampsHtml += '</div>'+progressRingHtml(count, TEAM.length)+'</div>';
+    stampsHtml += '</div>'+progressRingHtml(count, stampTeam.length)+'</div>';
     summaryEl.innerHTML = stampsHtml;
     requestAnimationFrame(function(){
       requestAnimationFrame(function(){
